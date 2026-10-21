@@ -54,8 +54,15 @@ class AnthropicProvider:
             raise LLMError(f"Anthropic API error {exc.status_code}") from exc
         except anthropic.APIConnectionError as exc:
             raise LLMError("Could not reach the Anthropic API") from exc
-        except anthropic.AnthropicError as exc:  # e.g. no credentials configured at all
+        except anthropic.AnthropicError as exc:
             raise LLMError(f"Anthropic client error: {exc}") from exc
+        except TypeError as exc:
+            # The SDK raises TypeError (not an API error) when no credentials resolve at all
+            if "authentication method" not in str(exc):
+                raise
+            raise LLMError(
+                "No Anthropic credentials configured (set ANTHROPIC_API_KEY); semantic pass skipped"
+            ) from None
 
         if response.stop_reason == "refusal":
             raise LLMError("Model declined this chunk (refusal); semantic pass skipped for it")

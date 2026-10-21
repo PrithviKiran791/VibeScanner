@@ -1,8 +1,8 @@
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import create_engine
 
-from alembic import context
 from vibeguard.config import get_settings
 from vibeguard.db.models import Base
 from vibeguard.db.session import sync_url

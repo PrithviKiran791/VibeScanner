@@ -22,3 +22,9 @@ node_modules/
 
 # Materialized demo app (contains assembled fake secrets)
 demo_app/
+
+# Dev server state (SQLite db)
+backend/.dev/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

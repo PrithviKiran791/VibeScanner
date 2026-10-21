@@ -142,10 +142,10 @@ CREATE TABLE remediations (
     verify_rule VARCHAR(128)          -- for secret spans: rule id to re-match
 );
 
--- Pull Requests opened from remediations (Phase 3 — not yet migrated)
+-- Pull Requests opened from finding fixes (migration 0002; one per finding)
 CREATE TABLE pull_requests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    finding_id UUID NOT NULL REFERENCES findings(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY,
+    finding_id UUID NOT NULL UNIQUE REFERENCES findings(id) ON DELETE CASCADE,
     pr_number INTEGER NOT NULL,
     pr_url VARCHAR(512) NOT NULL,
     branch_name VARCHAR(255) NOT NULL,

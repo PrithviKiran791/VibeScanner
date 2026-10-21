@@ -15,9 +15,9 @@ from typing import Any
 import fakeredis
 import httpx
 import pytest
+from alembic import command
 from alembic.config import Config
 
-from alembic import command
 from tests.conftest import HALLUCINATED, FakeProvider, registry_transport
 from vibeguard.api.deps import get_dispatcher, get_redis
 from vibeguard.api.main import create_app

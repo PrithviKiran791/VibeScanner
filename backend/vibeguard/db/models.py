@@ -7,7 +7,7 @@ the enums are native `CREATE TYPE`s and JSON becomes JSONB.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from sqlalchemy import (
@@ -65,6 +65,11 @@ def _enum(cls: type[StrEnum], name: str) -> Enum:
 JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
+def _now() -> datetime:
+    # Set app-side too: SQLite's CURRENT_TIMESTAMP is whole seconds, which breaks ordering
+    return datetime.now(UTC)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -77,9 +82,11 @@ class Repository(Base):
     url: Mapped[str] = mapped_column(String(512), unique=True)
     default_branch: Mapped[str] = mapped_column(String(64), default="main")
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), default=_now, server_default=func.now(), onupdate=func.now()
     )
 
     scans: Mapped[list[Scan]] = relationship(
@@ -115,7 +122,9 @@ class Scan(Base):
     warnings: Mapped[list[str]] = mapped_column(JSONType, default=list)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     error_message: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     repository: Mapped[Repository] = relationship(back_populates="scans", lazy="joined")
@@ -149,11 +158,16 @@ class Finding(Base):
     status: Mapped[FindingStatus] = mapped_column(
         _enum(FindingStatus, "finding_status"), default=FindingStatus.OPEN
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
 
     scan: Mapped[Scan] = relationship(back_populates="findings")
     remediation: Mapped[Remediation | None] = relationship(
         back_populates="finding", cascade="all, delete-orphan", lazy="selectin", uselist=False
+    )
+    pull_request: Mapped[PullRequest | None] = relationship(
+        cascade="all, delete-orphan", lazy="selectin", uselist=False
     )
 
 
@@ -177,3 +191,20 @@ class Remediation(Base):
     verify_rule: Mapped[str | None] = mapped_column(String(128))
 
     finding: Mapped[Finding] = relationship(back_populates="remediation")
+
+
+class PullRequest(Base):
+    """A GitHub PR opened from a finding's fix (one per finding)."""
+
+    __tablename__ = "pull_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    finding_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("findings.id", ondelete="CASCADE"), unique=True
+    )
+    pr_number: Mapped[int] = mapped_column(Integer)
+    pr_url: Mapped[str] = mapped_column(String(512))
+    branch_name: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )

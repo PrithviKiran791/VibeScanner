@@ -57,3 +57,7 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501"]  # ruff format owns line length; long string literals are fine
+
+[tool.ruff.lint.isort]
+# backend/alembic/ (migrations) shadows the package name; it is third-party
+known-third-party = ["alembic"]

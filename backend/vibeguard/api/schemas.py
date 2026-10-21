@@ -70,6 +70,14 @@ class RemediationOut(BaseModel):
     verify_rule: str | None
 
 
+class PullRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pr_number: int
+    pr_url: str
+    branch_name: str
+
+
 class FindingOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,6 +98,7 @@ class FindingOut(BaseModel):
     source: FindingSource
     status: FindingStatus
     remediation: RemediationOut | None
+    pull_request: PullRequestOut | None
 
 
 class FindingUpdate(BaseModel):
@@ -107,3 +116,9 @@ class ScoreOut(BaseModel):
 class FindingUpdateOut(BaseModel):
     finding: FindingOut
     scan: ScoreOut
+
+
+class OpenPullRequestOut(BaseModel):
+    finding: FindingOut
+    scan: ScoreOut
+    created: bool

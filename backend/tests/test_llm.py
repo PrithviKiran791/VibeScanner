@@ -156,3 +156,14 @@ def test_anthropic_api_errors_become_llm_error():
     provider = AnthropicProvider(client=_client(_StubMessages(error=err)))
     with pytest.raises(LLMError, match="rate limit"):
         provider.analyze("x")
+
+
+def test_missing_credentials_become_a_clear_warning(monkeypatch):
+    for var in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE"):
+        monkeypatch.delenv(var, raising=False)
+    msgs = _StubMessages(
+        error=TypeError('"Could not resolve authentication method. Expected one of api_key"')
+    )
+    provider = AnthropicProvider(client=_client(msgs))
+    with pytest.raises(LLMError, match="No Anthropic credentials"):
+        provider.analyze("x")

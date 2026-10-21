@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minimalist Dark Brutalism — markdown/design.md */
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply bg-obsidian font-sans text-bone antialiased;
+  }
+
+  body {
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    @apply bg-secure text-obsidian;
+  }
+
+  :focus-visible {
+    outline: 2px solid #fafafa;
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #27272a transparent;
+  }
+}
+
+@layer components {
+  /* Stamped-metal headings */
+  .stamp {
+    @apply font-heading font-bold uppercase tracking-[0.06em];
+  }
+
+  /* Buttons: hard shadow on hover, physical 2px press on :active */
+  .btn {
+    @apply stamp inline-flex h-10 select-none items-center justify-center gap-2 whitespace-nowrap border-2 px-4 text-[13px];
+    transition:
+      transform 60ms linear,
+      box-shadow 60ms linear;
+  }
+  .btn:not(:disabled):active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+  .btn-primary {
+    @apply border-secure bg-secure text-obsidian;
+  }
+  .btn-primary:not(:disabled):hover {
+    @apply shadow-hard-secure;
+  }
+  .btn-neutral {
+    @apply border-hairline bg-graphite text-bone;
+  }
+  .btn-neutral:not(:disabled):hover {
+    @apply shadow-hard;
+  }
+  .btn-risk {
+    @apply border-risk bg-transparent text-risk;
+  }
+  .btn-risk:not(:disabled):hover {
+    @apply shadow-hard-risk;
+  }
+
+  .field {
+    @apply h-12 w-full border-2 border-hairline bg-carbon px-4 text-[15px] text-bone placeholder:text-ash/60;
+  }
+  .field:focus {
+    @apply border-bone outline-none;
+  }
+
+  .code {
+    @apply font-sans text-[13px] font-medium leading-[1.5];
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -2,7 +2,17 @@
 
 A security scanner for AI-generated ("vibe-coded") web apps. It combines deterministic static analysis with a targeted LLM review, outputs a 0–100 **Hardening Index**, and produces ready-to-apply unified diffs.
 
-Specs live in [`markdown/`](markdown/). Phase 1 (core engine + CLI) and Phase 2 (FastAPI + Celery + PostgreSQL/Redis service) are done; see [`markdown/implementation.md`](markdown/implementation.md).
+Specs live in [`markdown/`](markdown/). Phases 1–3 are done: the core engine and CLI, the FastAPI + Celery + PostgreSQL/Redis service, and the Next.js dashboard with one-click fix PRs. See [`markdown/implementation.md`](markdown/implementation.md).
+
+## Try it without Docker
+
+```bash
+cd backend && .venv/Scripts/python -m tests.fixtures.materialize ../demo_app && cd ..
+backend/.venv/Scripts/python -m vibeguard.devserver --root .      # API on :8000 (SQLite + in-memory Redis + in-process worker)
+npm --prefix frontend install && npm --prefix frontend run dev     # dashboard on :3000
+```
+
+Open `http://localhost:3000` and scan `acme/repo` for a GitHub repo, or paste the absolute path of `demo_app`. The dev server allows local paths under `--root`. Set `ANTHROPIC_API_KEY` for the semantic pass, and `VIBEGUARD_GITHUB_TOKEN` (repo scope) for **Apply Fix (PR)**.
 
 ## How a scan works
 
@@ -56,6 +66,8 @@ Or run everything in containers: `docker compose -f docker/docker-compose.yml --
 | `GET /api/v1/scans/{id}` | Status (`QUEUED → CLONING → ANALYZING_STATIC → ANALYZING_LLM → COMPLETED/FAILED`), live `progress` from Redis, score, counts. |
 | `GET /api/v1/scans/{id}/findings` | Findings sorted by severity, with masked diffs and `remediation` coordinates. |
 | `PATCH /api/v1/findings/{id}` | `{"status": "OPEN" \| "PATCH_APPLIED" \| "DISMISSED_FALSE_POSITIVE" \| "RESOLVED"}`. The score is recalculated from OPEN findings. |
+| `GET /api/v1/scans?limit=20` | Scan history, newest first. |
+| `POST /api/v1/findings/{id}/pull-request` | Rebuilds the fix on the default branch's current file and opens a PR (from a fork if the token can't push). Returns `201`, or `200` if a PR already exists. Errors: `409` if the file changed since the scan, `422` if there's no automated fix, `400` for non-GitHub scans, `503` if no `VIBEGUARD_GITHUB_TOKEN` is set, `502` for GitHub errors. |
 
 Interactive docs: `http://localhost:8000/docs`. The test suite needs neither Docker nor a network: it uses SQLite migrated by Alembic, `fakeredis`, and the real Celery task run eagerly. Set `VIBEGUARD_TEST_DATABASE_URL` to run it against PostgreSQL.
 
@@ -71,7 +83,13 @@ backend/vibeguard/engine/
 backend/vibeguard/db/       SQLAlchemy models, async/sync sessions, persistence, triage scoring
 backend/vibeguard/worker/   Celery app, run_scan_task, Redis progress/lock/cache, payload contracts
 backend/vibeguard/api/      FastAPI app, routes, schemas
+backend/vibeguard/integrations/github.py   fix-PR flow (branch or fork, commit, PR)
+backend/vibeguard/engine/patch.py          strict unified-diff re-applier (refuses on drift)
+backend/vibeguard/devserver.py             Docker-free dev stack
 backend/alembic/            migrations
+frontend/src/app/           / (new scan + recent), /history, /scans/[id] (38/62 triage workspace)
+frontend/src/components/    nav/ · scan/ · triage/ · inspector/ (DiffView) · ui/
+frontend/src/lib/           typed API client, diff parser, polling hook (+ vitest)
 backend/tests/fixtures/vulnerable_app/   intentionally insecure Next.js demo (secrets as *.tmpl)
 docker/                     docker-compose.yml, backend.Dockerfile
 ```

@@ -23,10 +23,10 @@
 *   Add safe repository cloning with size checks and automatic ramdisk cleanup.
 
 ### Phase 3: Developer Dashboard (Week 4)
-*   Build the minimal dark-mode UI in **Next.js 14**.
-*   Render the Hardening Score ($0 - 100$) and status indicators.
-*   Render syntax-highlighted side-by-side Git diffs using `react-diff-viewer-continued`.
-*   Implement the "Copy Diff" and "Apply Patch (Create PR)" workflows.
+*   Build the minimal dark brutalist UI in **Next.js 16** (App Router) under `frontend/`, per `design.md`.
+*   Render the Hardening Score ($0 - 100$) and live scan progress (polling `GET /scans/{id}`, which reads the Redis progress hash).
+*   Render unified diffs with a custom `DiffView` (red/green gradient rows) instead of `react-diff-viewer-continued`: the stored patches are already unified diffs, and a custom view keeps the brutalist styling exact.
+*   Implement "Copy Diff", "Dismiss", and "Apply Fix (PR)": `POST /findings/{id}/pull-request` re-applies the fix to the live default branch (span remediation for secrets, strict diff re-apply otherwise), refuses on drift, and opens the PR from a branch or a fork.
 
 ### Phase 4: Packaging & Placement Readiness (Week 5)
 *   Containerize all services using `docker-compose.yml`.

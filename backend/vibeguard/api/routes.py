@@ -10,23 +10,42 @@ from redis.exceptions import RedisError
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vibeguard.api.deps import Dispatcher, get_dispatcher, get_redis
+from vibeguard.api.deps import Dispatcher, get_dispatcher, get_github_client, get_redis
 from vibeguard.api.schemas import (
     Counts,
     FindingOut,
     FindingUpdate,
     FindingUpdateOut,
+    OpenPullRequestOut,
     Progress,
     ScanCreate,
     ScanOut,
     ScoreOut,
 )
 from vibeguard.config import Settings, get_settings
-from vibeguard.db.models import Finding, Repository, Scan, ScanSource, ScanStatus
+from vibeguard.db.models import (
+    Finding,
+    FindingStatus,
+    PullRequest,
+    Repository,
+    Scan,
+    ScanSource,
+    ScanStatus,
+)
 from vibeguard.db.scoring import apply_score
 from vibeguard.db.session import get_session
 from vibeguard.engine.ingest.workspace import IngestError
+from vibeguard.engine.models import Remediation as RemediationSpec
 from vibeguard.engine.models import Severity
+from vibeguard.engine.patch import PatchMismatchError
+from vibeguard.engine.remediation import RemediationMismatchError
+from vibeguard.integrations.github import (
+    FixRequest,
+    GitHubClient,
+    GitHubError,
+    NoFixError,
+    open_fix_pr,
+)
 from vibeguard.worker.contracts import TargetSource, resolve_local_path
 from vibeguard.worker.state import JOB_TTL_S, LOCK_TTL_S, job_key, lock_key
 
@@ -37,6 +56,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 RedisDep = Annotated[aioredis.Redis, Depends(get_redis)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DispatchDep = Annotated[Dispatcher, Depends(get_dispatcher)]
+GitHubDep = Annotated[GitHubClient | None, Depends(get_github_client)]
 
 SEVERITY_ORDER = case({s.value: s.rank for s in Severity}, value=Finding.severity)
 
@@ -108,6 +128,14 @@ async def create_scan(
     return await _scan_out(scan, r)
 
 
+@router.get("/scans", response_model=list[ScanOut])
+async def list_scans(session: SessionDep, r: RedisDep, limit: int = 20) -> list[ScanOut]:
+    """Most recent first, for the Scan History view."""
+    limit = max(1, min(limit, 100))
+    scans = await session.scalars(select(Scan).order_by(Scan.created_at.desc()).limit(limit))
+    return [await _scan_out(scan, r) for scan in scans]
+
+
 @router.get("/scans/{scan_id}", response_model=ScanOut)
 async def get_scan(scan_id: uuid.UUID, session: SessionDep, r: RedisDep) -> ScanOut:
     return await _scan_out(await _get_scan(session, scan_id), r)
@@ -141,6 +169,83 @@ async def update_finding(
     return FindingUpdateOut(
         finding=FindingOut.model_validate(finding),
         scan=ScoreOut(scan_id=scan.id, hardening_score=scan.hardening_score, counts=_counts(scan)),
+    )
+
+
+@router.post("/findings/{finding_id}/pull-request", response_model=OpenPullRequestOut)
+async def open_pull_request(
+    finding_id: uuid.UUID, response: Response, session: SessionDep, github: GitHubDep
+) -> OpenPullRequestOut:
+    """Apply the finding's fix on a branch and open a PR. Idempotent per finding."""
+    finding = await session.get(Finding, finding_id)
+    if finding is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
+    scan = await _get_scan(session, finding.scan_id)
+
+    created = False
+    if finding.pull_request is None:
+        if scan.source_type != ScanSource.GITHUB:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only GitHub scans can open PRs")
+        if github is None:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "GitHub is not configured on this server (set VIBEGUARD_GITHUB_TOKEN)",
+            )
+        try:
+            opened = await open_fix_pr(github, _fix_request(finding, scan))
+        except NoFixError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+        except (PatchMismatchError, RemediationMismatchError) as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        except GitHubError as exc:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from None
+
+        finding.pull_request = PullRequest(
+            finding_id=finding.id,
+            pr_number=opened.number,
+            pr_url=opened.url,
+            branch_name=opened.branch,
+        )
+        finding.status = FindingStatus.PATCH_APPLIED
+        siblings = list(await session.scalars(select(Finding).where(Finding.scan_id == scan.id)))
+        apply_score(scan, siblings)
+        await session.commit()
+        created = True
+
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return OpenPullRequestOut(
+        finding=FindingOut.model_validate(finding),
+        scan=ScoreOut(scan_id=scan.id, hardening_score=scan.hardening_score, counts=_counts(scan)),
+        created=created,
+    )
+
+
+def _fix_request(finding: Finding, scan: Scan) -> FixRequest:
+    rem = finding.remediation
+    return FixRequest(
+        finding_id=str(finding.id),
+        repo_url=scan.repository.url,
+        file_path=finding.file_path,
+        rule_id=finding.rule_id,
+        title=finding.title,
+        severity=finding.severity.value,
+        cwe_id=finding.cwe_id,
+        line_start=finding.line_start,
+        explanation=finding.explanation,
+        unified_diff=finding.unified_diff,
+        remediation=RemediationSpec(
+            kind="replace_span",
+            file_path=rem.file_path,
+            line=rem.line,
+            col_start=rem.col_start,
+            col_end=rem.col_end,
+            replacement=rem.replacement,
+            env_var_name=rem.env_var_name,
+            expected_text=rem.expected_text,
+            verify_rule=rem.verify_rule,
+        )
+        if rem is not None
+        else None,
     )
 
 
