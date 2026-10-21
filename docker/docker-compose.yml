@@ -1,0 +1,64 @@
+# Local dev stack.
+#   docker compose -f docker/docker-compose.yml up -d              # PostgreSQL 16 + Redis only
+#   docker compose -f docker/docker-compose.yml --profile app up   # + API and Celery worker
+name: vibeguard
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vibeguard
+      POSTGRES_PASSWORD: vibeguard  # local dev only
+      POSTGRES_DB: vibeguard
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibeguard -d vibeguard"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    profiles: ["app"]
+    build: { context: ../backend, dockerfile: ../docker/backend.Dockerfile }
+    command: ["alembic", "upgrade", "head"]
+    environment: &backend-env
+      VIBEGUARD_DATABASE_URL: postgresql+psycopg://vibeguard:vibeguard@postgres:5432/vibeguard
+      VIBEGUARD_REDIS_URL: redis://redis:6379/0
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VIBEGUARD_LLM_MODEL: ${VIBEGUARD_LLM_MODEL:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    profiles: ["app"]
+    build: { context: ../backend, dockerfile: ../docker/backend.Dockerfile }
+    command: ["uvicorn", "vibeguard.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *backend-env
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    profiles: ["app"]
+    build: { context: ../backend, dockerfile: ../docker/backend.Dockerfile }
+    command: ["celery", "-A", "vibeguard.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment: *backend-env
+    # Clones live on a RAM disk and vanish with the container
+    tmpfs: ["/tmp:size=512m"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:

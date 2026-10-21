@@ -1,0 +1,131 @@
+"""Service-level fixtures: SQLite (migrated with Alembic) + fakeredis + the real Celery task.
+
+No Docker needed. Set VIBEGUARD_TEST_DATABASE_URL to a PostgreSQL URL to run the same suite
+against the docker-compose database instead.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import fakeredis
+import httpx
+import pytest
+from alembic.config import Config
+
+from alembic import command
+from tests.conftest import HALLUCINATED, FakeProvider, registry_transport
+from vibeguard.api.deps import get_dispatcher, get_redis
+from vibeguard.api.main import create_app
+from vibeguard.config import Settings, get_settings
+from vibeguard.db.session import async_session_factory, sync_session_factory
+from vibeguard.engine.llm.schemas import LLMFinding
+from vibeguard.worker.tasks import WorkerDeps, run_scan_task, set_worker_deps
+
+BACKEND = Path(__file__).resolve().parents[2]
+IDOR_UNIT = "app/api/user/[id]/route.ts#GET@4"
+
+
+def idor_finding() -> LLMFinding:
+    return LLMFinding(
+        unit_id=IDOR_UNIT,
+        title="IDOR On User Fetch",
+        category="Broken Access Control",
+        severity="CRITICAL",
+        cwe_id="CWE-639",
+        line_start=5,
+        line_end=5,
+        vulnerable_code="const user = await prisma.user.findUnique({ where: { id: params.id } });",
+        fixed_code=(
+            "  const session = await auth();\n"
+            "  if (session?.user?.id !== params.id) return new Response(null, { status: 403 });\n"
+            "  const user = await prisma.user.findUnique({ where: { id: params.id } });"
+        ),
+        explanation="Anyone can read any user. The URL id is never checked against the session.",
+    )
+
+
+def migrate(url: str) -> None:
+    cfg = Config(str(BACKEND / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND / "alembic"))
+    cfg.attributes["url"] = url
+    command.upgrade(cfg, "head")
+
+
+@dataclass
+class Service:
+    client: httpx.AsyncClient
+    settings: Settings
+    redis: fakeredis.FakeRedis
+    jobs: list[tuple[str, dict[str, Any], dict[str, Any]]] = field(default_factory=list)
+    fail_dispatch: bool = False
+
+    async def run_jobs(self) -> None:
+        """Execute queued jobs through the real Celery task, off the event loop like a worker."""
+        while self.jobs:
+            job = self.jobs.pop(0)
+            await asyncio.to_thread(run_scan_task.apply, args=job)
+
+
+@pytest.fixture
+def db_url(tmp_path) -> str:
+    url = os.environ.get("VIBEGUARD_TEST_DATABASE_URL") or f"sqlite:///{tmp_path.as_posix()}/vg.db"
+    migrate(url)
+    return url
+
+
+@pytest.fixture
+async def service(db_url, demo_app):
+    settings = Settings(
+        _env_file=None,
+        database_url=db_url,
+        llm_provider="none",
+        allow_local_paths=True,
+        local_scan_root=demo_app.parent,
+    )
+    server = fakeredis.FakeServer()
+    sync_redis = fakeredis.FakeRedis(server=server)
+    async_redis = fakeredis.FakeAsyncRedis(server=server)
+
+    set_worker_deps(
+        WorkerDeps(
+            settings=settings,
+            session_factory=sync_session_factory(db_url),
+            redis=sync_redis,
+            provider=FakeProvider([idor_finding()]),
+            registry_transport=registry_transport({HALLUCINATED}),
+        )
+    )
+
+    app = create_app()
+    svc: Service
+
+    async def _session():
+        async with async_session_factory(db_url)() as s:
+            yield s
+
+    def _dispatcher():
+        def dispatch(scan_id, target, options):
+            if svc.fail_dispatch:
+                raise ConnectionError("broker down")
+            svc.jobs.append((scan_id, target, options))
+
+        return dispatch
+
+    from vibeguard.db.session import get_session
+
+    app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[get_redis] = lambda: async_redis
+    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_dispatcher] = _dispatcher
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        svc = Service(client=client, settings=settings, redis=sync_redis)
+        yield svc
+
+    set_worker_deps(None)
