@@ -11,6 +11,8 @@ from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vibeguard.api.deps import Dispatcher, get_dispatcher, get_github_client, get_redis
+from vibeguard.api.enqueue import QueueUnavailableError, ScanAlreadyRunningError, enqueue_scan
+from vibeguard.api.ratelimit import rate_limit
 from vibeguard.api.schemas import (
     Counts,
     FindingOut,
@@ -27,10 +29,8 @@ from vibeguard.db.models import (
     Finding,
     FindingStatus,
     PullRequest,
-    Repository,
     Scan,
     ScanSource,
-    ScanStatus,
 )
 from vibeguard.db.scoring import apply_score
 from vibeguard.db.session import get_session
@@ -47,7 +47,7 @@ from vibeguard.integrations.github import (
     open_fix_pr,
 )
 from vibeguard.worker.contracts import TargetSource, resolve_local_path
-from vibeguard.worker.state import JOB_TTL_S, LOCK_TTL_S, job_key, lock_key
+from vibeguard.worker.state import job_key
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
@@ -58,10 +58,17 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 DispatchDep = Annotated[Dispatcher, Depends(get_dispatcher)]
 GitHubDep = Annotated[GitHubClient | None, Depends(get_github_client)]
 
-SEVERITY_ORDER = case({s.value: s.rank for s in Severity}, value=Finding.severity)
+# Compare against the column so each value binds as the native enum type: PostgreSQL has no
+# `vulnerability_severity = varchar` operator (SQLite never noticed the difference).
+SEVERITY_ORDER = case(*((Finding.severity == s, s.rank) for s in Severity), else_=0)
 
 
-@router.post("/scans", status_code=status.HTTP_202_ACCEPTED, response_model=ScanOut)
+@router.post(
+    "/scans",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=ScanOut,
+    dependencies=[Depends(rate_limit("scans", lambda s: s.rate_limit_scans_per_minute))],
+)
 async def create_scan(
     body: ScanCreate,
     response: Response,
@@ -71,60 +78,16 @@ async def create_scan(
     dispatch: DispatchDep,
 ) -> ScanOut:
     target = _target_from(body, settings)
-    canonical = target.canonical
-
-    # One active scan per repo (5 min TTL backstop if a worker dies before releasing it)
-    if not await r.set(lock_key(canonical), "pending", nx=True, ex=LOCK_TTL_S):
-        existing = await r.get(lock_key(canonical))
+    try:
+        scan = await enqueue_scan(target, body.options, session, r, dispatch)
+    except ScanAlreadyRunningError as exc:
         raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            detail={
-                "message": "A scan for this repository is already running",
-                "scan_id": existing.decode() if isinstance(existing, bytes) else existing,
-            },
-        )
-
-    try:
-        repo = await session.scalar(select(Repository).where(Repository.url == canonical))
-        if repo is None:
-            repo = Repository(name=target.display_name, url=canonical)
-            session.add(repo)
-        scan = Scan(
-            repository=repo,
-            source_type=ScanSource.GITHUB if target.kind == "github" else ScanSource.LOCAL,
-            status=ScanStatus.QUEUED,
-            total_findings=0,
-            critical_count=0,
-            high_count=0,
-            medium_count=0,
-            low_count=0,
-            llm_used=False,
-            warnings=[],
-        )
-        session.add(scan)
-        await session.commit()
-
-        sid = str(scan.id)
-        await r.set(lock_key(canonical), sid, xx=True, ex=LOCK_TTL_S)
-        await r.hset(
-            job_key(sid), mapping={"step": "QUEUED", "percentage": "0", "status": "QUEUED"}
-        )
-        await r.expire(job_key(sid), JOB_TTL_S)
-    except Exception:
-        await r.delete(lock_key(canonical))
-        raise
-
-    try:
-        dispatch(sid, target.model_dump(), body.options.model_dump())
-    except Exception:
-        log.exception("could not enqueue scan %s", sid)
-        scan.status = ScanStatus.FAILED
-        scan.error_message = "Task queue unavailable"
-        await session.commit()
-        await r.delete(lock_key(canonical))
+            status.HTTP_409_CONFLICT, detail={"message": str(exc), "scan_id": exc.scan_id}
+        ) from None
+    except QueueUnavailableError:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Task queue unavailable") from None
 
-    response.headers["Location"] = f"/api/v1/scans/{sid}"
+    response.headers["Location"] = f"/api/v1/scans/{scan.id}"
     return await _scan_out(scan, r)
 
 
@@ -152,7 +115,11 @@ async def list_findings(scan_id: uuid.UUID, session: SessionDep) -> list[Finding
     return list(rows)
 
 
-@router.patch("/findings/{finding_id}", response_model=FindingUpdateOut)
+@router.patch(
+    "/findings/{finding_id}",
+    response_model=FindingUpdateOut,
+    dependencies=[Depends(rate_limit("triage", lambda s: s.rate_limit_triage_per_minute))],
+)
 async def update_finding(
     finding_id: uuid.UUID, body: FindingUpdate, session: SessionDep
 ) -> FindingUpdateOut:
@@ -172,7 +139,11 @@ async def update_finding(
     )
 
 
-@router.post("/findings/{finding_id}/pull-request", response_model=OpenPullRequestOut)
+@router.post(
+    "/findings/{finding_id}/pull-request",
+    response_model=OpenPullRequestOut,
+    dependencies=[Depends(rate_limit("prs", lambda s: s.rate_limit_prs_per_minute))],
+)
 async def open_pull_request(
     finding_id: uuid.UUID, response: Response, session: SessionDep, github: GitHubDep
 ) -> OpenPullRequestOut:

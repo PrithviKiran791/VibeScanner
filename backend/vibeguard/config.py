@@ -73,6 +73,20 @@ class Settings(BaseSettings):
     local_scan_root: Path | None = None
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # Phase 4: production hardening
+    rate_limit_enabled: bool = True
+    rate_limit_scans_per_minute: int = 10
+    rate_limit_prs_per_minute: int = 5
+    rate_limit_triage_per_minute: int = 60
+    rate_limit_webhooks_per_minute: int = 120
+    # Proxies (IPs/CIDRs) whose X-Forwarded-For is believed, e.g. the dashboard's Next server.
+    # Empty = rate-limit by socket peer only.
+    trusted_proxies: list[str] = []
+    # Requests larger than this are refused before the body is read (webhooks included)
+    max_request_bytes: int = 5 * 1024 * 1024
+    # Shared secret for GitHub webhook signatures (repo webhook or GitHub App); unset = disabled
+    github_webhook_secret: SecretStr | None = None
+
     @property
     def resolved_llm_model(self) -> str | None:
         return self.llm_model or DEFAULT_MODELS.get(self.llm_provider)

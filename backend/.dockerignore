@@ -1,0 +1,11 @@
+# Never send secrets or local state to the Docker daemon
+.env
+.env.*
+!.env.example
+.venv/
+.dev/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+tests/

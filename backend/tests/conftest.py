@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+import sys
 from pathlib import Path
 
 import httpx
 import pytest
+
+if sys.platform == "win32":
+    # psycopg's async driver can't run on Windows' default Proactor loop; only matters when
+    # VIBEGUARD_TEST_DATABASE_URL points the suite at PostgreSQL (production runs on Linux).
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from tests.fixtures.materialize import build_demo_app
 from vibeguard.config import Settings

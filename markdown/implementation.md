@@ -29,8 +29,11 @@
 *   Implement "Copy Diff", "Dismiss", and "Apply Fix (PR)": `POST /findings/{id}/pull-request` re-applies the fix to the live default branch (span remediation for secrets, strict diff re-apply otherwise), refuses on drift, and opens the PR from a branch or a fork.
 
 ### Phase 4: Packaging & Placement Readiness (Week 5)
-*   Containerize all services using `docker-compose.yml`.
-*   Prepare a public demo repository containing intentional vibe-coded vulnerabilities for live interviewer demonstrations.
+*   Containerize all services with `docker/docker-compose.yml` (`--profile app`): migrations, API, Celery worker and the Next.js standalone dashboard, each non-root, with healthchecks (`/readyz` pings PostgreSQL and Redis).
+*   GitHub webhooks (`POST /api/v1/webhooks/github`): HMAC-SHA256 verified over the raw body, ping/push handled, a push to the default branch queues a scan, delivery GUIDs deduplicated for 24h. Works for a repo webhook or a GitHub App.
+*   Rate limiting: Redis fixed windows per client on write endpoints only (scans, PRs, triage, webhooks); fails open if Redis is down. Client identity comes from `X-Forwarded-For` only when the peer is in `VIBEGUARD_TRUSTED_PROXIES`, which is the nginx edge. Next's rewrite proxy forwards client-supplied `X-Forwarded-For` unchanged, so browser API traffic goes edge → FastAPI directly, never through Next. Security headers, `no-store`, and request size caps at the edge and the API.
+*   Verified on PostgreSQL 16: the service suite runs against the compose database (`VIBEGUARD_TEST_DATABASE_URL`), resetting the schema through real Alembic downgrade/upgrade each test.
+*   Prepare a public demo repository: `python -m tests.fixtures.export_demo <dest>` builds a committed, push-safe copy of the vulnerable app (no provider key patterns that GitHub push protection blocks).
 
 ---
 

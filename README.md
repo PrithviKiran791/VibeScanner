@@ -58,7 +58,22 @@ cd backend
 .venv/Scripts/celery -A vibeguard.worker.celery_app worker --pool=solo --loglevel=INFO   # --pool=solo on Windows
 ```
 
-Or run everything in containers: `docker compose -f docker/docker-compose.yml --profile app up --build`.
+Or run the whole stack in containers. Everything public goes through an nginx edge on `http://localhost:3000`, which routes `/api/` to FastAPI and the rest to the dashboard. The API is also published on `:8000` for local debugging:
+
+```bash
+cp docker/.env.example docker/.env      # add OPENROUTER_API_KEY etc. (gitignored)
+docker compose -f docker/docker-compose.yml --profile app up --build -d
+```
+
+If a local PostgreSQL already owns port 5432, prefix the command with `VIBEGUARD_PG_PORT=5433`. To run the service tests against that database: `VIBEGUARD_TEST_DATABASE_URL=postgresql+psycopg://vibeguard:vibeguard@localhost:5433/vibeguard_test pytest tests/service` (create `vibeguard_test` first).
+
+## Live demo repo
+
+```bash
+cd backend && .venv/Scripts/python -m tests.fixtures.export_demo ../../vibeguard-demo-app
+```
+
+This creates a committed, standalone copy of the vulnerable app outside this repo. It has no provider-pattern keys, so GitHub push protection accepts it. Push it to a new public repo, then scan `<you>/vibeguard-demo-app` from the dashboard.
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -68,6 +83,10 @@ Or run everything in containers: `docker compose -f docker/docker-compose.yml --
 | `PATCH /api/v1/findings/{id}` | `{"status": "OPEN" \| "PATCH_APPLIED" \| "DISMISSED_FALSE_POSITIVE" \| "RESOLVED"}`. The score is recalculated from OPEN findings. |
 | `GET /api/v1/scans?limit=20` | Scan history, newest first. |
 | `POST /api/v1/findings/{id}/pull-request` | Rebuilds the fix on the default branch's current file and opens a PR (from a fork if the token can't push). Returns `201`, or `200` if a PR already exists. Errors: `409` if the file changed since the scan, `422` if there's no automated fix, `400` for non-GitHub scans, `503` if no `VIBEGUARD_GITHUB_TOKEN` is set, `502` for GitHub errors. |
+
+| `POST /api/v1/webhooks/github` | GitHub push webhook (repo webhook or GitHub App). Needs `VIBEGUARD_GITHUB_WEBHOOK_SECRET`; a push to the default branch queues a scan. |
+
+Write endpoints are rate-limited per client (`VIBEGUARD_RATE_LIMIT_*`, `429` + `Retry-After`); reads are not. `GET /healthz` is liveness, `GET /readyz` checks PostgreSQL and Redis.
 
 Interactive docs: `http://localhost:8000/docs`. The test suite needs neither Docker nor a network: it uses SQLite migrated by Alembic, `fakeredis`, and the real Celery task run eagerly. Set `VIBEGUARD_TEST_DATABASE_URL` to run it against PostgreSQL.
 

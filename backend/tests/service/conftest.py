@@ -22,7 +22,12 @@ from tests.conftest import HALLUCINATED, FakeProvider, registry_transport
 from vibeguard.api.deps import get_dispatcher, get_redis
 from vibeguard.api.main import create_app
 from vibeguard.config import Settings, get_settings
-from vibeguard.db.session import async_session_factory, sync_session_factory
+from vibeguard.db.session import (
+    async_engine,
+    async_session_factory,
+    sync_engine,
+    sync_session_factory,
+)
 from vibeguard.engine.llm.schemas import LLMFinding
 from vibeguard.worker.tasks import WorkerDeps, run_scan_task, set_worker_deps
 
@@ -48,10 +53,14 @@ def idor_finding() -> LLMFinding:
     )
 
 
-def migrate(url: str) -> None:
+def migrate(url: str, reset: bool = False) -> None:
     cfg = Config(str(BACKEND / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND / "alembic"))
     cfg.attributes["url"] = url
+    if reset:
+        # A shared PostgreSQL database: start every test from an empty schema. Going through
+        # the migrations also exercises downgrade (including enum type drops) on real Postgres.
+        command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
 
 
@@ -72,9 +81,14 @@ class Service:
 
 @pytest.fixture
 def db_url(tmp_path) -> str:
-    url = os.environ.get("VIBEGUARD_TEST_DATABASE_URL") or f"sqlite:///{tmp_path.as_posix()}/vg.db"
-    migrate(url)
-    return url
+    shared = os.environ.get("VIBEGUARD_TEST_DATABASE_URL")
+    url = shared or f"sqlite:///{tmp_path.as_posix()}/vg.db"
+    migrate(url, reset=bool(shared))
+    yield url
+    # Engines are cached per URL; a shared URL must not reuse pools across event loops
+    sync_engine(url).dispose()
+    sync_engine.cache_clear()
+    async_engine.cache_clear()
 
 
 @pytest.fixture
@@ -128,3 +142,4 @@ async def service(db_url, demo_app):
         yield svc
 
     set_worker_deps(None)
+    await async_engine(db_url).dispose()
