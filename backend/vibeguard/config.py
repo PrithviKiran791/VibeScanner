@@ -9,6 +9,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_MODELS = {"openrouter": "google/gemma-4-31b-it:free", "gemini": "gemini-2.5-flash"}
 
+# backend/.env is read no matter where the process starts (repo root, backend/, Docker);
+# a .env in the working directory, if any, overrides it.
+BACKEND_ENV = Path(__file__).resolve().parents[1] / ".env"
+
 
 def _env(name: str) -> AliasChoices:
     """Accept both VIBEGUARD_<NAME> and the bare <NAME> (e.g. OPENROUTER_API_KEY)."""
@@ -16,7 +20,9 @@ def _env(name: str) -> AliasChoices:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="VIBEGUARD_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="VIBEGUARD_", env_file=(BACKEND_ENV, ".env"), extra="ignore"
+    )
 
     # Ingestion limits (PRD FR-1.3)
     max_repo_bytes: int = 50 * 1024 * 1024
