@@ -87,6 +87,16 @@ class Settings(BaseSettings):
     # Shared secret for GitHub webhook signatures (repo webhook or GitHub App); unset = disabled
     github_webhook_secret: SecretStr | None = None
 
+    # Authentication: Firebase ID tokens (Sign in with Google in the dashboard).
+    # Fails closed: no project ID -> 503 on every protected route; empty allowlist -> 403.
+    firebase_project_id: str | None = None
+    # Who may use this deployment. PRs are opened with the server's GitHub token, so anyone
+    # allowed here can act on GitHub as that token: keep it tight.
+    auth_allowed_emails: list[str] = []
+    auth_allowed_domains: list[str] = []
+    # Local development only (the Docker-free devserver sets it). Never in production.
+    auth_disabled: bool = False
+
     @property
     def resolved_llm_model(self) -> str | None:
         return self.llm_model or DEFAULT_MODELS.get(self.llm_provider)

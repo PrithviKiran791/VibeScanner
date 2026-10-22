@@ -18,7 +18,9 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
+from tests.auth_helpers import ALLOWED_EMAIL, PROJECT_ID, bearer, verifier
 from tests.conftest import HALLUCINATED, FakeProvider, registry_transport
+from vibeguard.api.auth import get_verifier
 from vibeguard.api.deps import get_dispatcher, get_redis
 from vibeguard.api.main import create_app
 from vibeguard.config import Settings, get_settings
@@ -99,6 +101,9 @@ async def service(db_url, demo_app):
         llm_provider="none",
         allow_local_paths=True,
         local_scan_root=demo_app.parent,
+        # Auth is ON for every service test: requests carry a token minted by tests.auth_helpers
+        firebase_project_id=PROJECT_ID,
+        auth_allowed_emails=[ALLOWED_EMAIL],
     )
     server = fakeredis.FakeServer()
     sync_redis = fakeredis.FakeRedis(server=server)
@@ -135,9 +140,12 @@ async def service(db_url, demo_app):
     app.dependency_overrides[get_redis] = lambda: async_redis
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_dispatcher] = _dispatcher
+    app.dependency_overrides[get_verifier] = verifier
 
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test", headers=bearer()
+    ) as client:
         svc = Service(client=client, settings=settings, redis=sync_redis)
         yield svc
 

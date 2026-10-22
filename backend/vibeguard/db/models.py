@@ -122,6 +122,8 @@ class Scan(Base):
     warnings: Mapped[list[str]] = mapped_column(JSONType, default=list)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     error_message: Mapped[str | None] = mapped_column(Text)
+    # Email of the signed-in user who started it; NULL for webhook-triggered scans
+    created_by: Mapped[str | None] = mapped_column(String(320))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()
     )
@@ -205,6 +207,7 @@ class PullRequest(Base):
     pr_number: Mapped[int] = mapped_column(Integer)
     pr_url: Mapped[str] = mapped_column(String(512))
     branch_name: Mapped[str] = mapped_column(String(255))
+    opened_by: Mapped[str | None] = mapped_column(String(320))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()
     )

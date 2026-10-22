@@ -10,6 +10,7 @@ from redis.exceptions import RedisError
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vibeguard.api.auth import CurrentUser, current_user
 from vibeguard.api.deps import Dispatcher, get_dispatcher, get_github_client, get_redis
 from vibeguard.api.enqueue import QueueUnavailableError, ScanAlreadyRunningError, enqueue_scan
 from vibeguard.api.ratelimit import rate_limit
@@ -18,6 +19,7 @@ from vibeguard.api.schemas import (
     FindingOut,
     FindingUpdate,
     FindingUpdateOut,
+    MeOut,
     OpenPullRequestOut,
     Progress,
     ScanCreate,
@@ -50,7 +52,8 @@ from vibeguard.worker.contracts import TargetSource, resolve_local_path
 from vibeguard.worker.state import job_key
 
 log = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1")
+# Every route here requires a signed-in, allowlisted user (webhooks live in their own router)
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(current_user)])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 RedisDep = Annotated[aioredis.Redis, Depends(get_redis)]
@@ -76,10 +79,11 @@ async def create_scan(
     r: RedisDep,
     settings: SettingsDep,
     dispatch: DispatchDep,
+    user: CurrentUser,
 ) -> ScanOut:
     target = _target_from(body, settings)
     try:
-        scan = await enqueue_scan(target, body.options, session, r, dispatch)
+        scan = await enqueue_scan(target, body.options, session, r, dispatch, created_by=user.email)
     except ScanAlreadyRunningError as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT, detail={"message": str(exc), "scan_id": exc.scan_id}
@@ -89,6 +93,12 @@ async def create_scan(
 
     response.headers["Location"] = f"/api/v1/scans/{scan.id}"
     return await _scan_out(scan, r)
+
+
+@router.get("/me", response_model=MeOut)
+async def me(user: CurrentUser) -> MeOut:
+    """Who the dashboard is signed in as (and proof the session is accepted)."""
+    return MeOut(uid=user.uid, email=user.email, name=user.name, picture=user.picture)
 
 
 @router.get("/scans", response_model=list[ScanOut])
@@ -145,7 +155,11 @@ async def update_finding(
     dependencies=[Depends(rate_limit("prs", lambda s: s.rate_limit_prs_per_minute))],
 )
 async def open_pull_request(
-    finding_id: uuid.UUID, response: Response, session: SessionDep, github: GitHubDep
+    finding_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    github: GitHubDep,
+    user: CurrentUser,
 ) -> OpenPullRequestOut:
     """Apply the finding's fix on a branch and open a PR. Idempotent per finding."""
     finding = await session.get(Finding, finding_id)
@@ -176,6 +190,7 @@ async def open_pull_request(
             pr_number=opened.number,
             pr_url=opened.url,
             branch_name=opened.branch,
+            opened_by=user.email,
         )
         finding.status = FindingStatus.PATCH_APPLIED
         siblings = list(await session.scalars(select(Finding).where(Finding.scan_id == scan.id)))
@@ -255,6 +270,7 @@ async def _scan_out(scan: Scan, r: aioredis.Redis) -> ScanOut:
         duration_ms=scan.duration_ms,
         error_message=scan.error_message,
         progress=None if scan.status.terminal else await _progress(r, str(scan.id)),
+        created_by=scan.created_by,
         created_at=scan.created_at,
         completed_at=scan.completed_at,
     )

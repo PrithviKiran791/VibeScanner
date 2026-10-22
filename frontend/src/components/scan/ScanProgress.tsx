@@ -1,5 +1,7 @@
 import { Check } from "lucide-react";
 
+import { Spinner } from "@/components/ui/spinner";
+import { Progress } from "@/components/ui/progress";
 import { cn, shortTarget } from "@/lib/format";
 import type { Scan, ScanStatus } from "@/lib/types";
 
@@ -24,16 +26,7 @@ export function ScanProgress({ scan }: { scan: Scan }) {
         </div>
 
         <div className="px-5 py-6 sm:px-6">
-          <div
-            className="h-4 border-2 border-hairline"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={pct}
-            aria-label="Scan progress"
-          >
-            <div className="h-full bg-bone transition-[width] duration-300 ease-linear" style={{ width: `${pct}%` }} />
-          </div>
+          <Progress value={pct} className="w-full" />
           <p className="code mt-2 flex justify-between text-ash">
             <span>{scan.progress?.step.replaceAll("_", " ").toLowerCase() ?? "starting"}</span>
             <span>{pct}%</span>
@@ -64,7 +57,7 @@ export function ScanProgress({ scan }: { scan: Scan }) {
                     <span className="stamp block text-[13px]">{stage.label}</span>
                     <span className="block text-[13px] text-ash">{stage.detail}</span>
                   </span>
-                  {active && <span aria-hidden className="ml-auto h-2.5 w-2.5 animate-pulse bg-bone" />}
+                  {active && <Spinner className="ml-auto size-4 text-secure" />}
                 </li>
               );
             })}

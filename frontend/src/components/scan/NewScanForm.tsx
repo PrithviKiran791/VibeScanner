@@ -8,6 +8,8 @@ import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { normalizeTarget } from "@/lib/target";
 import type { ScanOptions } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 export function NewScanForm() {
   const router = useRouter();
@@ -60,10 +62,19 @@ export function NewScanForm() {
               aria-invalid={Boolean(error)}
               aria-describedby={error ? "target-error" : undefined}
             />
-            <button type="submit" className="btn btn-primary h-12 shrink-0 px-6" disabled={busy}>
-              {busy ? "Queuing" : "Scan"}
-              <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
-            </button>
+            <Button type="submit" variant="default" size="lg" className="h-12 shrink-0 px-6" disabled={busy}>
+              {busy ? (
+                <>
+                  <Spinner className="size-4" />
+                  <span>Queuing</span>
+                </>
+              ) : (
+                <>
+                  <span>Scan</span>
+                  <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
+                </>
+              )}
+            </Button>
           </div>
           {error && (
             <p id="target-error" role="alert" className="mt-3 text-[13px] text-risk">

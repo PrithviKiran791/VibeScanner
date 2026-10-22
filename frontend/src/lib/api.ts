@@ -1,5 +1,7 @@
+import { currentToken, notifyAuthFailure } from "./session";
 import type {
   Finding,
+  Me,
   FindingStatus,
   FindingUpdateResult,
   OpenPullRequestResult,
@@ -24,15 +26,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let resp: Response;
-  try {
-    resp = await fetch(`/api/v1${path}`, {
-      ...init,
-      headers: { "Content-Type": "application/json", ...init?.headers },
-      cache: "no-store",
-    });
-  } catch {
-    throw new ApiError("Can't reach the VibeGuard API. Is the backend running?", 0, null);
+  let resp = await send(path, init, false);
+  if (resp.status === 401) {
+    // The cached ID token may have just expired: retry once with a fresh one
+    resp = await send(path, init, true);
+    if (resp.status === 401) notifyAuthFailure();
   }
   const body: unknown = await resp.json().catch(() => null);
   if (!resp.ok) {
@@ -40,6 +38,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(errorMessage(detail, resp.status), resp.status, detail);
   }
   return body as T;
+}
+
+async function send(path: string, init: RequestInit | undefined, refresh: boolean): Promise<Response> {
+  const token = await currentToken(refresh);
+  try {
+    return await fetch(`/api/v1${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError("Can't reach the VibeGuard API. Is the backend running?", 0, null);
+  }
 }
 
 export function errorMessage(detail: unknown, status: number): string {
@@ -61,6 +76,7 @@ export function errorMessage(detail: unknown, status: number): string {
 export const api = {
   createScan: (target: { repo_url: string } | { local_path: string }, options: ScanOptions) =>
     request<Scan>("/scans", { method: "POST", body: JSON.stringify({ ...target, options }) }),
+  me: () => request<Me>("/me"),
   listScans: (limit = 20) => request<Scan[]>(`/scans?limit=${limit}`),
   getScan: (id: string) => request<Scan>(`/scans/${encodeURIComponent(id)}`),
   listFindings: (id: string) => request<Finding[]>(`/scans/${encodeURIComponent(id)}/findings`),

@@ -52,6 +52,7 @@ class ScanOut(BaseModel):
     duration_ms: int | None
     error_message: str | None
     progress: Progress | None
+    created_by: str | None
     created_at: datetime
     completed_at: datetime | None
 
@@ -76,6 +77,7 @@ class PullRequestOut(BaseModel):
     pr_number: int
     pr_url: str
     branch_name: str
+    opened_by: str | None
 
 
 class FindingOut(BaseModel):
@@ -122,3 +124,10 @@ class OpenPullRequestOut(BaseModel):
     finding: FindingOut
     scan: ScoreOut
     created: bool
+
+
+class MeOut(BaseModel):
+    uid: str
+    email: str
+    name: str | None
+    picture: str | None

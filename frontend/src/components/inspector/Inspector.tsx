@@ -5,6 +5,8 @@ import { useState } from "react";
 
 import { DiffView, SnippetView } from "@/components/inspector/DiffView";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/lib/api";
 import { cn, isSevere, location } from "@/lib/format";
 import type { Finding, FindingUpdateResult, ScanSource } from "@/lib/types";
@@ -122,21 +124,21 @@ export function Inspector(props: {
               <ExternalLink size={14} aria-hidden />
             </a>
           ) : (
-            <button
+            <Button
               type="button"
-              className="btn btn-primary"
+              variant="default"
               disabled={Boolean(prBlocker) || busy !== null}
               title={prBlocker ?? undefined}
               onClick={() => run("pr", () => api.openPullRequest(f.id))}
             >
-              <GitPullRequest size={16} strokeWidth={2.5} aria-hidden />
+              {busy === "pr" ? <Spinner className="size-4" /> : <GitPullRequest size={16} strokeWidth={2.5} aria-hidden />}
               {busy === "pr" ? "Opening PR" : "Apply Fix (PR)"}
-            </button>
+            </Button>
           )}
-          <button type="button" className="btn btn-neutral" disabled={!f.unified_diff} onClick={copy}>
+          <Button type="button" variant="neutral" disabled={!f.unified_diff} onClick={copy}>
             {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
             {copied ? "Copied" : "Copy Diff"}
-          </button>
+          </Button>
           <button
             type="button"
             className="ml-auto text-[13px] text-ash underline-offset-4 hover:text-bone hover:underline disabled:opacity-40"

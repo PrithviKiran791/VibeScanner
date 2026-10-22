@@ -1,10 +1,11 @@
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { TopNav } from "@/components/nav/TopNav";
 import { NewScanForm } from "@/components/scan/NewScanForm";
 import { ScanTable } from "@/components/scan/ScanTable";
 
 export default function Home() {
   return (
-    <>
+    <RequireAuth>
       <TopNav />
       <main className="mx-auto max-w-[1080px] px-4 pb-16 pt-[calc(64px+40px)] sm:px-6">
         <div className="mb-10 border-l-[6px] border-secure pl-5">
@@ -21,6 +22,6 @@ export default function Home() {
           <ScanTable limit={8} title="Recent Scans" />
         </div>
       </main>
-    </>
+    </RequireAuth>
   );
 }

@@ -40,6 +40,10 @@ services:
       LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-google/gemma-4-26b-a4b-it:free}
       VIBEGUARD_GITHUB_TOKEN: ${VIBEGUARD_GITHUB_TOKEN:-}
       VIBEGUARD_GITHUB_WEBHOOK_SECRET: ${VIBEGUARD_GITHUB_WEBHOOK_SECRET:-}
+      # Sign-in: the API rejects every request until both are set (fails closed)
+      VIBEGUARD_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      VIBEGUARD_AUTH_ALLOWED_EMAILS: ${VIBEGUARD_AUTH_ALLOWED_EMAILS:-[]}
+      VIBEGUARD_AUTH_ALLOWED_DOMAINS: ${VIBEGUARD_AUTH_ALLOWED_DOMAINS:-[]}
       # Only the nginx edge (fixed address) may vouch for client IPs (rate limiting)
       VIBEGUARD_TRUSTED_PROXIES: '["172.28.0.10/32"]'
     depends_on:
@@ -78,6 +82,10 @@ services:
       dockerfile: ../docker/frontend.Dockerfile
       args:
         VIBEGUARD_API_URL: http://api:8000
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN:-}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${FIREBASE_APP_ID:-}
     expose: ["3000"]  # reached only through the edge
     depends_on:
       api: { condition: service_healthy }

@@ -32,6 +32,7 @@ async def enqueue_scan(
     session: AsyncSession,
     r: aioredis.Redis,
     dispatch: Dispatcher,
+    created_by: str | None = None,
 ) -> Scan:
     canonical = target.canonical
 
@@ -58,6 +59,7 @@ async def enqueue_scan(
             low_count=0,
             llm_used=False,
             warnings=[],
+            created_by=created_by,
         )
         session.add(scan)
         await session.commit()

@@ -43,10 +43,13 @@ def build_app(root: Path):
     cfg.attributes["url"] = db_url
     command.upgrade(cfg, "head")
 
+    configured = Settings()
     settings = Settings(
         database_url=db_url,
         allow_local_paths=True,
         local_scan_root=root.resolve(),
+        # No Firebase project configured -> run open, for local hacking only
+        auth_disabled=configured.firebase_project_id is None,
     )
     server = fakeredis.FakeServer()
     set_worker_deps(
@@ -91,6 +94,11 @@ def main() -> None:
     log.info("database: %s", settings.database_url)
     log.info("local scans allowed under: %s", settings.local_scan_root)
     log.info("LLM provider: %s (%s)", settings.llm_provider, settings.resolved_llm_model)
+    if settings.auth_disabled:
+        log.warning(
+            "AUTH DISABLED: no VIBEGUARD_FIREBASE_PROJECT_ID set, every request acts as dev@localhost. "
+            "Local use only."
+        )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

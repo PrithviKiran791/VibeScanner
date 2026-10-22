@@ -1,14 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { ShieldAlert, BookOpen, Code2 } from "lucide-react";
 
-import { cn } from "@/lib/format";
+import { AccountControl } from "@/components/nav/AccountControl";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 /** The only navigation surface (design.md §5): 64px, no sidebars, no breadcrumbs. */
 export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode }) {
-  const path = usePathname();
-  const onHistory = path.startsWith("/history");
+  const router = useRouter();
 
   return (
     <header className="fixed inset-x-0 top-0 z-30 flex h-nav items-stretch border-b-2 border-hairline bg-obsidian">
@@ -29,29 +38,79 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
         </div>
       )}
 
-      <nav className="flex flex-1 items-stretch justify-center" aria-label="Primary">
-        {[
-          { href: "/", label: "Code Audit", short: "Audit", active: !onHistory },
-          { href: "/history", label: "Scan History", short: "History", active: onHistory },
-        ].map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            aria-current={tab.active ? "page" : undefined}
-            className={cn(
-              "stamp -mb-[2px] flex items-center whitespace-nowrap border-b-2 px-3 text-[12px] sm:px-5",
-              tab.active ? "border-bone text-bone" : "border-transparent text-ash hover:text-bone",
-            )}
-          >
-            <span className="hidden sm:inline">{tab.label}</span>
-            <span className="sm:hidden">{tab.short}</span>
-          </Link>
-        ))}
+      {/* Primary Center Neobrutalism Menubar */}
+      <nav className="flex flex-1 items-center justify-center px-2" aria-label="Primary">
+        <Menubar className="border-0 bg-transparent h-9">
+          <MenubarMenu>
+            <MenubarTrigger className="text-[12px] uppercase tracking-wider font-heading">
+              <Code2 className="mr-1.5 size-3.5 text-secure" />
+              Audit
+            </MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem onClick={() => router.push("/audit")}>Security Overview</MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onClick={() => router.push("/")}>
+                New Code Scan <MenubarShortcut>⌘N</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem onClick={() => router.push("/history")}>
+                Scan History <MenubarShortcut>⌘H</MenubarShortcut>
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onClick={() => router.push("/docs#demo-app")}>
+                Demo App Workspace
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+
+          <MenubarMenu>
+            <MenubarTrigger className="text-[12px] uppercase tracking-wider font-heading">
+              <ShieldAlert className="mr-1.5 size-3.5 text-risk" />
+              Rules
+            </MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem disabled className="font-semibold text-ash text-[11px] uppercase tracking-wider">
+                Active Scanners
+              </MenubarItem>
+              <MenubarItem onClick={() => router.push("/rules#secrets")}>Secrets & Token Leaks</MenubarItem>
+              <MenubarItem onClick={() => router.push("/rules#sinks")}>Tree-sitter AST Sinks</MenubarItem>
+              <MenubarItem onClick={() => router.push("/rules#supply-chain")}>
+                Supply Chain Typosquatting
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onClick={() => router.push("/rules#semantic")}>
+                LLM Semantic Review (Gemma)
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onClick={() => router.push("/rules")}>All Rules</MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+
+          <MenubarMenu>
+            <MenubarTrigger className="text-[12px] uppercase tracking-wider font-heading">
+              <BookOpen className="mr-1.5 size-3.5 text-ash" />
+              Docs
+            </MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem onClick={() => router.push("/docs")}>Documentation</MenubarItem>
+              <MenubarItem onClick={() => router.push("/docs#pull-requests")}>GitHub PR Fixes</MenubarItem>
+              <MenubarItem onClick={() => router.push("/docs#hardening-index")}>
+                Hardening Index (0–100)
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onClick={() => window.open("http://localhost:8000/docs", "_blank", "noopener")}>
+                API Interactive Docs <MenubarShortcut>↗</MenubarShortcut>
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
       </nav>
 
       {right && (
         <div className="flex items-center gap-3 border-l-2 border-hairline px-3 sm:px-5">{right}</div>
       )}
+
+      {/* Sign In / account + sign out at the right edge */}
+      <AccountControl />
     </header>
   );
 }

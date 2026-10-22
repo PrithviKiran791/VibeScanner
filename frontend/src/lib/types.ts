@@ -40,6 +40,7 @@ export interface Scan {
   duration_ms: number | null;
   error_message: string | null;
   progress: Progress | null;
+  created_by: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -60,6 +61,7 @@ export interface PullRequest {
   pr_number: number;
   pr_url: string;
   branch_name: string;
+  opened_by: string | null;
 }
 
 export interface Finding {
@@ -104,3 +106,10 @@ export interface ScanOptions {
 }
 
 export const TERMINAL: ReadonlySet<ScanStatus> = new Set(["COMPLETED", "FAILED"]);
+
+export interface Me {
+  uid: string;
+  email: string;
+  name: string | null;
+  picture: string | null;
+}

@@ -14,6 +14,8 @@ import { shortTarget } from "@/lib/format";
 import type { Scan } from "@/lib/types";
 import { TERMINAL } from "@/lib/types";
 import { useScan } from "@/lib/useScan";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 export function ScanWorkspace({ scanId }: { scanId: string }) {
   const { scan, findings, error, applyUpdate } = useScan(scanId);
@@ -57,7 +59,14 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
       <>
         {nav}
         <main className="px-4 pt-[calc(64px+48px)] text-center sm:px-6">
-          <p className={error ? "text-[14px] text-risk" : "text-[14px] text-ash"}>{error ?? "Loading scan…"}</p>
+          {error ? (
+            <p className="text-[14px] text-risk">{error}</p>
+          ) : (
+            <div className="flex items-center justify-center gap-3 text-[14px] text-ash">
+              <Spinner className="size-5 text-secure" />
+              <span>Loading scan…</span>
+            </div>
+          )}
         </main>
       </>
     );
@@ -138,10 +147,14 @@ function RescanButton({ scan }: { scan: Scan }) {
   }
 
   return (
-    <button type="button" className="btn btn-neutral px-3 sm:px-4" disabled={disabled} onClick={rescan}>
-      <RotateCw size={15} strokeWidth={2.5} aria-hidden className={busy ? "animate-spin" : undefined} />
+    <Button type="button" variant="neutral" className="px-3 sm:px-4" disabled={disabled} onClick={rescan}>
+      {busy ? (
+        <Spinner className="size-3.5 text-secure" />
+      ) : (
+        <RotateCw size={15} strokeWidth={2.5} aria-hidden />
+      )}
       <span className="hidden sm:inline">Re-scan</span>
-    </button>
+    </Button>
   );
 }
 

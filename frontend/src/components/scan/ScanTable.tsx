@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { cn, relativeTime, scoreBand, shortTarget, STATUS_LABEL } from "@/lib/format";
 import type { Scan } from "@/lib/types";
 import { TERMINAL } from "@/lib/types";
+import { Spinner } from "@/components/ui/spinner";
 
 const SCORE_TEXT = { secure: "text-secure", neutral: "text-bone", risk: "text-risk" } as const;
 
@@ -46,7 +47,12 @@ export function ScanTable({ limit, title }: { limit: number; title: string }) {
       </div>
 
       {error && <p className="px-5 py-6 text-[14px] text-risk sm:px-6">{error}</p>}
-      {!error && scans === null && <p className="px-5 py-6 text-[14px] text-ash sm:px-6">Loading…</p>}
+      {!error && scans === null && (
+        <div className="flex items-center gap-3 px-5 py-6 text-[14px] text-ash sm:px-6">
+          <Spinner className="size-4 text-secure" />
+          <span>Loading scans…</span>
+        </div>
+      )}
       {scans?.length === 0 && (
         <p className="px-5 py-6 text-[14px] text-ash sm:px-6">No scans yet. Start one above.</p>
       )}
