@@ -45,7 +45,7 @@ VibeGuard relies on a **hybrid processing model**: deterministic analysis handle
 | **Task Queue** | **Celery + Redis** | Decouples CPU/LLM intensive scan workflows from the HTTP request cycle; guarantees scalability and progress reporting. |
 | **Static Code Analysis** | **Tree-sitter & Semgrep Core** | Tree-sitter provides language-agnostic AST parsing for source file filtering; Semgrep executes deterministic rules. |
 | **Package Verification** | **Direct Registry API (npm/PyPI)** | Validates imported packages against live registry registries to identify hallucinated packages (slopsquatting). |
-| **LLM Inference** | **Pluggable provider (`LLMProvider` interface): Anthropic Claude (default `claude-opus-5-5`, server-side refusal fallback enabled) or Google Gemini via `google-genai`** | High context window for multi-file routing context, structured JSON output validated by Pydantic. The engine runs deterministic-only when no API key is configured. |
+| **LLM Inference** | **Pluggable provider (`LLMProvider` interface). Default: Google Gemma 4 31B (`google/gemma-4-31b-it:free`) via OpenRouter's OpenAI-compatible API, falling back to `google/gemma-4-26b-a4b-it:free` on 429/5xx. Optional: Gemini via `google-genai`.** | Free, 262K context. JSON mode (`response_format: json_object`) plus per-finding Pydantic validation; the hallucination guard and Tree-sitter patch check are provider-independent. The engine runs deterministic-only when no key is configured. |
 | **Database** | **PostgreSQL** | Relational schema ideal for normalized vulnerability findings, severity categories, and historical hardening trends. |
 | **Containerization** | **Docker & Docker Compose** | Reproducible development, isolated worker execution sandboxes, and cloud-ready microservices. |
 
@@ -61,12 +61,12 @@ pydantic-settings>=2.2
 tree-sitter>=0.23
 tree-sitter-language-pack>=0.7     # replaces unmaintained tree-sitter-languages
 httpx>=0.27                        # git itself runs via subprocess (portable clone timeout)
-anthropic>=0.40                    # optional extra: [anthropic]
+openai>=3.26                       # optional extra: [openrouter] (OpenAI-compatible client for OpenRouter)
 google-genai>=1.0                  # optional extra: [gemini]; replaces deprecated google-generativeai
 ```
 Phase 2 (`[service]` extra): `fastapi`, `uvicorn[standard]`, `celery[redis]`, `redis`, `sqlalchemy[asyncio]>=2.0`, `alembic`, `psycopg[binary]` (one URL drives both the async API engine and the sync worker engine). Tests (`[dev]`): `pytest-asyncio`, `aiosqlite`, `fakeredis`.
 
-Model ID: `VIBEGUARD_LLM_MODEL` (alias `LLM_MODEL_ID`); blank falls back to the provider default.
+Model config: `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, `LLM_FALLBACK_MODEL` (each also accepts the `VIBEGUARD_` prefix).
 
 > **Semgrep & Gitleaks** run inside the worker Docker image (Semgrep has no native Windows build). The engine's built-in regex rules (ported from the Gitleaks rule set) and Tree-sitter sink queries work everywhere; external binaries are used opportunistically when present on `PATH`.
 

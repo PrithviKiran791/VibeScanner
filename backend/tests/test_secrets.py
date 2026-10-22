@@ -70,3 +70,15 @@ def test_helpers():
     assert redact(STRIPE) == "sk_l********"
     assert shannon_entropy("aaaa") == 0
     assert shannon_entropy("abcd") == 2
+
+
+def test_openrouter_key_detected_with_env_fix():
+    key = "sk-or-v1-" + "a1" * 32  # assembled so no key-shaped literal sits in git
+    [f] = scan_secrets(
+        make_sf("lib/llm.ts", f'const client = new OpenAI({{ apiKey: "{key}" }});\n')
+    )
+    assert f.rule_id == "openrouter-api-key" and f.severity == Severity.CRITICAL
+    assert (
+        f.snippet_fixed == "const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY! });"
+    )
+    assert key not in f.snippet_original

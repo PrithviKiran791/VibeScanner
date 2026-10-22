@@ -122,7 +122,7 @@ def _run_llm(
     chunks = chunk_units(units, settings.llm_chunk_chars)
     warnings: list[str] = []
     raw: list[LLMFinding] = []
-    ok = 0
+    ok = rejected = 0
 
     pool = ThreadPoolExecutor(max_workers=settings.llm_concurrency)
     futures = [pool.submit(provider.analyze, build_prompt(c, middleware)) for c in chunks]
@@ -132,7 +132,9 @@ def _run_llm(
 
     for fut in done:
         try:
-            raw.extend(fut.result().findings)
+            report = fut.result()
+            raw.extend(report.findings)
+            rejected += report.rejected
             ok += 1
         except LLMError as exc:
             warnings.append(str(exc))
@@ -141,4 +143,6 @@ def _run_llm(
             warnings.append("An LLM chunk failed unexpectedly")
     if pending:
         warnings.append(f"{len(pending)} LLM chunk(s) skipped: scan deadline reached")
+    if rejected:
+        warnings.append(f"Discarded {rejected} LLM finding(s) that did not match the output schema")
     return raw, ok, sorted(set(warnings))

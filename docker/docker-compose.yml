@@ -34,8 +34,9 @@ services:
     environment: &backend-env
       VIBEGUARD_DATABASE_URL: postgresql+psycopg://vibeguard:vibeguard@postgres:5432/vibeguard
       VIBEGUARD_REDIS_URL: redis://redis:6379/0
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      VIBEGUARD_LLM_MODEL: ${VIBEGUARD_LLM_MODEL:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-google/gemma-4-31b-it:free}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-google/gemma-4-26b-a4b-it:free}
     depends_on:
       postgres: { condition: service_healthy }
 

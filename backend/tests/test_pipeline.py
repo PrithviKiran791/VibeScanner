@@ -21,20 +21,20 @@ def _scan(app, settings, provider):
 
 def _idor() -> LLMFinding:
     return LLMFinding(
-        unit_id=IDOR_UNIT,
         title="IDOR On User Fetch",
-        category="Broken Access Control",
         severity="CRITICAL",
+        category="Broken Access Control",
         cwe_id="CWE-639",
+        file_path="app/api/user/[id]/route.ts",
         line_start=5,
         line_end=5,
         vulnerable_code="const user = await prisma.user.findUnique({ where: { id: params.id } });",
-        fixed_code=(
+        suggested_patch=(
             "  const session = await auth();\n"
             '  if (session?.user?.id !== params.id) return new Response("Forbidden", { status: 403 });\n'
             "  const user = await prisma.user.findUnique({ where: { id: params.id } });"
         ),
-        explanation="Any visitor can read any user's record. The URL id is never checked against the session.",
+        description="Any visitor can read any user's record. The URL id is never checked against the session.",
     )
 
 
@@ -73,9 +73,9 @@ def test_fixture_with_llm_adds_idor_and_only_sends_pruned_units(demo_app, settin
 
 
 def test_llm_failure_degrades_to_static(demo_app, settings):
-    result = _scan(demo_app, settings, FakeProvider(error=LLMError("Anthropic rate limit hit")))
+    result = _scan(demo_app, settings, FakeProvider(error=LLMError("All LLM models unavailable")))
     assert not result.llm_used
-    assert "Anthropic rate limit hit" in result.warnings
+    assert "All LLM models unavailable" in result.warnings
     assert len(result.findings) == 6
 
 

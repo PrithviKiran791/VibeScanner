@@ -12,7 +12,7 @@ backend/.venv/Scripts/python -m vibeguard.devserver --root .      # API on :8000
 npm --prefix frontend install && npm --prefix frontend run dev     # dashboard on :3000
 ```
 
-Open `http://localhost:3000` and scan `acme/repo` for a GitHub repo, or paste the absolute path of `demo_app`. The dev server allows local paths under `--root`. Set `ANTHROPIC_API_KEY` for the semantic pass, and `VIBEGUARD_GITHUB_TOKEN` (repo scope) for **Apply Fix (PR)**.
+Open `http://localhost:3000` and scan `acme/repo` for a GitHub repo, or paste the absolute path of `demo_app`. The dev server allows local paths under `--root`. Set `OPENROUTER_API_KEY` in `backend/.env` for the semantic pass, and `VIBEGUARD_GITHUB_TOKEN` (repo scope) for **Apply Fix (PR)**.
 
 ## How a scan works
 
@@ -20,7 +20,7 @@ Open `http://localhost:3000` and scan `acme/repo` for a GitHub repo, or paste th
 | --- | --- | --- |
 | 1. Deterministic | Secret rules (adapted from Gitleaks), Supabase service-role JWTs, `NEXT_PUBLIC_*SECRET*` leaks, npm/PyPI checks for made-up packages, Tree-sitter sinks (SQL interpolation, `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `child_process`) | 0 |
 | 2. Pruning | Tree-sitter extracts App Router handlers, Pages API routes, server actions, Express routes and middleware, then ranks them by risk signals | 0 |
-| 3. Semantic | Only the pruned units go to the LLM (Claude by default) with a strict JSON schema; findings that don't match real lines are discarded | bounded |
+| 3. Semantic | Only the pruned units go to the LLM (Gemma 4 31B via OpenRouter by default) in JSON mode, validated per finding; findings that don't match real lines are discarded | bounded |
 
 Scoring is deterministic: `max(0, 100 − 25·critical − 12·high − 5·medium − 1·low)`.
 
@@ -29,7 +29,7 @@ Scoring is deterministic: `max(0, 100 − 25·critical − 12·high − 5·mediu
 ```bash
 cd backend
 py -3.12 -m venv .venv
-.venv/Scripts/pip install -e ".[anthropic,service,dev]"   # macOS/Linux: .venv/bin/pip
+.venv/Scripts/pip install -e ".[openrouter,service,dev]"   # macOS/Linux: .venv/bin/pip
 
 # Build the demo app (its fake secrets are assembled here, never committed literally)
 .venv/Scripts/python -m tests.fixtures.materialize ../demo_app
@@ -37,7 +37,7 @@ py -3.12 -m venv .venv
 # Deterministic only
 .venv/Scripts/vibeguard scan ../demo_app --no-llm
 
-# With the Claude semantic pass (uses ANTHROPIC_API_KEY or an `ant auth login` profile)
+# With the semantic pass (needs OPENROUTER_API_KEY in the environment or backend/.env)
 .venv/Scripts/vibeguard scan https://github.com/<owner>/<repo> --json report.json --markdown report.md
 
 # CI gate
@@ -46,7 +46,7 @@ py -3.12 -m venv .venv
 .venv/Scripts/python -m pytest
 ```
 
-The model is set with `VIBEGUARD_LLM_MODEL` (or `LLM_MODEL_ID`); see [`backend/.env.example`](backend/.env.example).
+The model is set with `LLM_MODEL` (default `google/gemma-4-31b-it:free`, falling back to `LLM_FALLBACK_MODEL` on 429/5xx); see [`backend/.env.example`](backend/.env.example).
 
 ## Service (Phase 2)
 
@@ -78,7 +78,7 @@ backend/vibeguard/engine/
   ingest/     file_index.py (ignore rules, 50MB cap) · workspace.py (shallow clone, safe ZIP, auto-wipe)
   static/     secrets.py + rules/secrets.toml · deps.py · sinks.py
   syntax/     tree.py (Tree-sitter helpers) · routes.py (entry-point extraction + pruning)
-  llm/        provider.py · anthropic_provider.py · gemini_provider.py · schemas.py · validate.py · prompts/
+  llm/        provider.py · openrouter_provider.py · gemini_provider.py · schemas.py · validate.py · prompts/
   diff.py  merge.py  scoring.py  remediation.py  report.py  pipeline.py  cli.py  models.py
 backend/vibeguard/db/       SQLAlchemy models, async/sync sessions, persistence, triage scoring
 backend/vibeguard/worker/   Celery app, run_scan_task, Redis progress/lock/cache, payload contracts

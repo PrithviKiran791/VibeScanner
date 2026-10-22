@@ -64,11 +64,11 @@ def test_verify_span():
 
 
 def test_llm_model_from_env(monkeypatch):
-    monkeypatch.delenv("VIBEGUARD_LLM_MODEL", raising=False)
-    monkeypatch.delenv("LLM_MODEL_ID", raising=False)
-    assert Settings(_env_file=None).resolved_llm_model == "claude-opus-5-5"
-    monkeypatch.setenv("LLM_MODEL_ID", "claude-sonnet-5-5")
-    assert Settings(_env_file=None).resolved_llm_model == "claude-sonnet-5-5"
-    monkeypatch.setenv("VIBEGUARD_LLM_MODEL", "claude-haiku-5-5")
-    assert Settings(_env_file=None).resolved_llm_model == "claude-haiku-5-5"
-    assert Settings(_env_file=None, llm_provider="none").llm_model == "claude-haiku-5-5"
+    for var in ("VIBEGUARD_LLM_MODEL", "LLM_MODEL", "LLM_MODEL_ID"):
+        monkeypatch.delenv(var, raising=False)
+    assert Settings(_env_file=None).resolved_llm_model == "google/gemma-4-31b-it:free"
+    monkeypatch.setenv("LLM_MODEL", "google/gemma-4-26b-a4b-it:free")
+    assert Settings(_env_file=None).resolved_llm_model == "google/gemma-4-26b-a4b-it:free"
+    monkeypatch.setenv("VIBEGUARD_LLM_MODEL", "google/gemma-4-31b-it")
+    assert Settings(_env_file=None).resolved_llm_model == "google/gemma-4-31b-it"
+    assert Settings(_env_file=None, llm_provider="none").llm_model == "google/gemma-4-31b-it"

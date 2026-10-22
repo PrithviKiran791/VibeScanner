@@ -27,25 +27,24 @@ from vibeguard.engine.llm.schemas import LLMFinding
 from vibeguard.worker.tasks import WorkerDeps, run_scan_task, set_worker_deps
 
 BACKEND = Path(__file__).resolve().parents[2]
-IDOR_UNIT = "app/api/user/[id]/route.ts#GET@4"
 
 
 def idor_finding() -> LLMFinding:
     return LLMFinding(
-        unit_id=IDOR_UNIT,
         title="IDOR On User Fetch",
-        category="Broken Access Control",
         severity="CRITICAL",
+        category="Broken Access Control",
         cwe_id="CWE-639",
+        file_path="app/api/user/[id]/route.ts",
         line_start=5,
         line_end=5,
         vulnerable_code="const user = await prisma.user.findUnique({ where: { id: params.id } });",
-        fixed_code=(
+        suggested_patch=(
             "  const session = await auth();\n"
             "  if (session?.user?.id !== params.id) return new Response(null, { status: 403 });\n"
             "  const user = await prisma.user.findUnique({ where: { id: params.id } });"
         ),
-        explanation="Anyone can read any user. The URL id is never checked against the session.",
+        description="Anyone can read any user. The URL id is never checked against the session.",
     )
 
 

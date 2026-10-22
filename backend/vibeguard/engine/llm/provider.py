@@ -65,17 +65,26 @@ def chunk_units(units: list[CodeUnit], max_chars: int) -> list[list[CodeUnit]]:
 
 def get_provider(settings: Settings) -> LLMProvider | None:
     timeout = max(5.0, settings.scan_deadline_s - 10)
-    if settings.llm_provider == "anthropic":
+    if settings.llm_provider == "openrouter":
+        if (
+            settings.openrouter_api_key is None
+            or not settings.openrouter_api_key.get_secret_value()
+        ):
+            raise LLMError(
+                "No OpenRouter API key configured (set OPENROUTER_API_KEY); semantic pass skipped"
+            )
         try:
-            from vibeguard.engine.llm.anthropic_provider import AnthropicProvider
+            from vibeguard.engine.llm.openrouter_provider import OpenRouterProvider
         except ImportError as exc:
-            raise LLMError("anthropic is not installed; run pip install -e .[anthropic]") from exc
+            raise LLMError("openai is not installed; run pip install -e .[openrouter]") from exc
 
-        key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else None
-        return AnthropicProvider(
+        return OpenRouterProvider(
             model=settings.resolved_llm_model,
-            effort=settings.anthropic_effort,
-            api_key=key,
+            api_key=settings.openrouter_api_key.get_secret_value(),
+            base_url=settings.llm_base_url,
+            fallback_model=settings.llm_fallback_model,
+            app_url=settings.llm_app_url,
+            app_name=settings.llm_app_name,
             timeout=timeout,
         )
     if settings.llm_provider == "gemini":

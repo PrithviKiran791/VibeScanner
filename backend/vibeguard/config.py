@@ -7,7 +7,12 @@ from typing import Literal
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_MODELS = {"anthropic": "claude-opus-5-5", "gemini": "gemini-2.5-flash"}
+DEFAULT_MODELS = {"openrouter": "google/gemma-4-31b-it:free", "gemini": "gemini-2.5-flash"}
+
+
+def _env(name: str) -> AliasChoices:
+    """Accept both VIBEGUARD_<NAME> and the bare <NAME> (e.g. OPENROUTER_API_KEY)."""
+    return AliasChoices(f"VIBEGUARD_{name}", name)
 
 
 class Settings(BaseSettings):
@@ -22,13 +27,25 @@ class Settings(BaseSettings):
     registry_timeout_s: float = 5.0
 
     # LLM pass
-    llm_provider: Literal["none", "anthropic", "gemini"] = "anthropic"
+    llm_provider: Literal["none", "openrouter", "gemini"] = "openrouter"
     # Swap models without code changes. Unset -> the provider default in DEFAULT_MODELS.
     llm_model: str | None = Field(
-        default=None, validation_alias=AliasChoices("VIBEGUARD_LLM_MODEL", "LLM_MODEL_ID")
+        default=None,
+        validation_alias=AliasChoices("VIBEGUARD_LLM_MODEL", "LLM_MODEL", "LLM_MODEL_ID"),
     )
-    anthropic_api_key: SecretStr | None = None
-    anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    # Tried once when the primary model is rate-limited or unavailable (free tiers throttle hard)
+    llm_fallback_model: str | None = Field(
+        default="google/gemma-4-26b-a4b-it:free", validation_alias=_env("LLM_FALLBACK_MODEL")
+    )
+    llm_base_url: str = Field(
+        default="https://openrouter.ai/api/v1", validation_alias=_env("LLM_BASE_URL")
+    )
+    openrouter_api_key: SecretStr | None = Field(
+        default=None, validation_alias=_env("OPENROUTER_API_KEY")
+    )
+    # OpenRouter attribution headers (HTTP-Referer / X-Title)
+    llm_app_url: str = "http://localhost:3000"
+    llm_app_name: str = "VibeGuard"
     gemini_api_key: SecretStr | None = None
     llm_max_units: int = 40
     llm_chunk_chars: int = 24_000

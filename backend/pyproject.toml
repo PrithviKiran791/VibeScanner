@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-anthropic = ["anthropic>=0.70"]
+openrouter = ["openai>=3.26"]
 gemini = ["google-genai>=1.0"]
 service = [
     "fastapi>=0.115",

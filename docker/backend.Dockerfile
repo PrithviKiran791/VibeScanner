@@ -11,7 +11,7 @@ COPY pyproject.toml ./
 COPY vibeguard ./vibeguard
 COPY alembic.ini ./
 COPY alembic ./alembic
-RUN pip install --no-cache-dir ".[anthropic,service]"
+RUN pip install --no-cache-dir ".[openrouter,service]"
 
 USER vibeguard
 # Fetch Tree-sitter grammars at build time so workers never download at scan time
