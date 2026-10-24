@@ -15,6 +15,7 @@ PROTECTED = [
     ("GET", "/api/v1/scans", None),
     ("POST", "/api/v1/scans", {"repo_url": "https://github.com/acme/app"}),
     ("GET", "/api/v1/scans/00000000-0000-0000-0000-000000000000", None),
+    ("DELETE", "/api/v1/scans/00000000-0000-0000-0000-000000000000", None),
     ("GET", "/api/v1/scans/00000000-0000-0000-0000-000000000000/findings", None),
     ("PATCH", "/api/v1/findings/00000000-0000-0000-0000-000000000000", {"status": "OPEN"}),
     ("POST", "/api/v1/findings/00000000-0000-0000-0000-000000000000/pull-request", None),
@@ -31,6 +32,7 @@ async def test_every_api_route_requires_sign_in(service, method, path, body):
     resp = await _call(service, method, path, body, {"Authorization": ""})
     assert resp.status_code == 401
     assert resp.headers["www-authenticate"] == "Bearer"
+    assert resp.json() == {"detail": "Authentication required to initiate scans."}
     assert service.jobs == []
 
 

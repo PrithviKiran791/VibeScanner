@@ -14,7 +14,7 @@ function scan(target: string, score: number | null, over: Partial<Scan> = {}): S
     repository: target,
     commit_hash: null,
     hardening_score: score,
-    counts: { critical: 1, high: 2, medium: 0, low: 0, total: 3 },
+    counts: { critical: 1, high: 2, medium: 0, low: 0, total: 3, patched: 0 },
     files_scanned: 10,
     llm_used: false,
     warnings: [],
@@ -69,7 +69,7 @@ describe("summarize", () => {
       [b, 100, null],
     ]);
     expect(s.averageScore).toBe(88);
-    expect(s.open).toEqual({ critical: 2, high: 4, medium: 0, low: 0, total: 6 });
+    expect(s.open).toEqual({ critical: 2, high: 4, medium: 0, low: 0, total: 6, patched: 0 });
   });
 
   it("handles no completed scans", () => {

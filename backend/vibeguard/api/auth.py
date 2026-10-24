@@ -1,13 +1,14 @@
 """Firebase Authentication for the API.
 
-The dashboard signs users in with Google through the Firebase JS SDK and sends the Firebase ID
-token as `Authorization: Bearer <token>`. We verify it ourselves, as Firebase documents for
-third-party JWT libraries: RS256 signature against Google's published `securetoken` keys,
-`aud` = project ID, `iss` = https://securetoken.google.com/<project>, unexpired, issued in
-the past, non-empty `sub`, and a verified email. No service-account credentials are needed.
+The dashboard signs users in (GitHub, Google or email) through the Firebase JS SDK and sends
+the Firebase ID token as `Authorization: Bearer <token>`. We verify it ourselves, as Firebase
+documents for third-party JWT libraries: RS256 signature against Google's published
+`securetoken` keys, `aud` = project ID, `iss` = https://securetoken.google.com/<project>,
+unexpired, issued in the past, non-empty `sub`. No service-account credentials are needed.
 
-Then an allowlist decides who may use this deployment. Everything fails closed: no project ID
-configured means 503, an empty allowlist means 403 for everyone.
+Then an allowlist decides who may use this deployment: a verified email (or its domain), or a
+GitHub account id for GitHub sign-ins, whose emails Firebase never marks verified. Everything
+fails closed: no project ID configured means 503, an empty allowlist means 403 for everyone.
 """
 
 from __future__ import annotations
@@ -34,9 +35,10 @@ CLOCK_SKEW_S = 60
 @dataclass(frozen=True)
 class Principal:
     uid: str
-    email: str
+    email: str | None
     name: str | None = None
     picture: str | None = None
+    github_id: str | None = None
 
 
 # Used when VIBEGUARD_AUTH_DISABLED is set (local devserver only)
@@ -119,7 +121,7 @@ async def current_user(
 
     scheme, _, token = request.headers.get("authorization", "").partition(" ")
     if scheme.lower() != "bearer" or not token:
-        raise _unauthorized("Sign in required")
+        raise _unauthorized("Authentication required to initiate scans.")
     try:
         # Key fetches on a cache miss are blocking HTTP: keep them off the event loop
         claims = await run_in_threadpool(verifier.verify, token.strip())
@@ -127,15 +129,29 @@ async def current_user(
         log.info("rejected ID token: %s", exc)
         raise _unauthorized("Invalid or expired sign-in; please sign in again") from None
 
-    email = claims.get("email")
-    if not email or not claims.get("email_verified"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "A verified email address is required")
-    if not is_allowed(email, settings):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, f"{email} is not allowed to use this VibeGuard deployment"
-        )
+    email = claims.get("email") or None
+    verified = bool(email and claims.get("email_verified"))
+    # Firebase signs the linked provider accounts into the token: firebase.identities
+    identities = (claims.get("firebase") or {}).get("identities") or {}
+    github_ids = identities.get("github.com") or []
+    github_id = str(github_ids[0]) if github_ids else None
+
+    github_ok = github_id in {i.strip() for i in settings.auth_allowed_github_ids}
+    email_ok = verified and is_allowed(email or "", settings)
+    if not (github_ok or email_ok):
+        if github_id is not None:
+            detail = f"GitHub account {github_id} is not allowed to use this VibeGuard deployment"
+        elif not verified:
+            detail = "A verified email address is required"
+        else:
+            detail = f"{email} is not allowed to use this VibeGuard deployment"
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail)
     return Principal(
-        uid=claims["sub"], email=email, name=claims.get("name"), picture=claims.get("picture")
+        uid=claims["sub"],
+        email=email,
+        name=claims.get("name"),
+        picture=claims.get("picture"),
+        github_id=github_id,
     )
 
 

@@ -2,10 +2,11 @@
 
 import { ArrowRight } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/format";
+import { takePendingScan } from "@/lib/pendingScan";
 import { normalizeTarget } from "@/lib/target";
 import type { ScanOptions } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -19,13 +20,7 @@ export function NewScanForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const target = normalizeTarget(value);
-    if (!target) {
-      setError("Enter a GitHub repository like acme/vibe-app or https://github.com/acme/vibe-app");
-      return;
-    }
+  async function start(target: NonNullable<ReturnType<typeof normalizeTarget>>) {
     setBusy(true);
     setError(null);
     try {
@@ -40,6 +35,31 @@ export function NewScanForm() {
       setBusy(false);
     }
   }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const target = normalizeTarget(value);
+    if (!target) {
+      setError("Enter a GitHub repository like acme/vibe-app or https://github.com/acme/vibe-app");
+      return;
+    }
+    await start(target);
+  }
+
+  // A repo entered on the landing page before signing in (lib/pendingScan): start it on arrival.
+  // The ref keeps StrictMode's double effect from starting it twice.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    const repo = takePendingScan();
+    if (!repo) return;
+    void Promise.resolve().then(() => {
+      setValue(repo.replace("https://github.com/", ""));
+      return start({ repo_url: repo });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
 
   return (
     <form onSubmit={submit} className="border-2 border-hairline bg-carbon" noValidate>

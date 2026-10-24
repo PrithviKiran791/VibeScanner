@@ -86,6 +86,7 @@ def get_provider(settings: Settings) -> LLMProvider | None:
             app_url=settings.llm_app_url,
             app_name=settings.llm_app_name,
             timeout=timeout,
+            reasoning=settings.llm_reasoning,
         )
     if settings.llm_provider == "gemini":
         from vibeguard.engine.llm.gemini_provider import GeminiProvider

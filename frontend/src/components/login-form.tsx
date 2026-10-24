@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 import { authErrorMessage, useAuth } from "@/components/auth/AuthProvider";
+import { GitHubMark } from "@/components/auth/GitHubMark";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/format";
@@ -39,11 +40,12 @@ function nextPath(): string {
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
   const router = useRouter();
-  const { status, signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword } = useAuth();
+  const { status, signInWithEmail, signUpWithEmail, signInWithGitHub, signInWithGoogle, resetPassword } =
+    useAuth();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState<"form" | "google" | null>(null);
+  const [busy, setBusy] = useState<"form" | "github" | "google" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -58,7 +60,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     setNotice(null);
   }
 
-  async function run(kind: "form" | "google", fn: () => Promise<void>) {
+  async function run(kind: "form" | "github" | "google", fn: () => Promise<void>) {
     setBusy(kind);
     setError(null);
     setNotice(null);
@@ -186,6 +188,18 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
             {busy === "form" && <Spinner className="size-4" />}
             {copy.submit}
           </Button>
+
+          {mode !== "reset" && (
+            <button
+              type="button"
+              className="btn h-10 w-full border-secure bg-obsidian text-bone hover:shadow-hard-secure"
+              disabled={busy !== null}
+              onClick={() => run("github", signInWithGitHub)}
+            >
+              {busy === "github" ? <Spinner className="size-4 text-secure" /> : <GitHubMark className="size-4" />}
+              Login with GitHub
+            </button>
+          )}
 
           {mode !== "reset" && (
             <Button

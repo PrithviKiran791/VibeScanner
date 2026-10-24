@@ -79,6 +79,8 @@ export const api = {
   me: () => request<Me>("/me"),
   listScans: (limit = 20) => request<Scan[]>(`/scans?limit=${limit}`),
   getScan: (id: string) => request<Scan>(`/scans/${encodeURIComponent(id)}`),
+  deleteScan: (id: string) =>
+    request<null>(`/scans/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listFindings: (id: string) => request<Finding[]>(`/scans/${encodeURIComponent(id)}/findings`),
   updateFinding: (id: string, status: FindingStatus) =>
     request<FindingUpdateResult>(`/findings/${encodeURIComponent(id)}`, {

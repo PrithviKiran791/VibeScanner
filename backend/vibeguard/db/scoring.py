@@ -9,7 +9,9 @@ from vibeguard.engine.scoring import PENALTIES
 
 
 def apply_score(scan: Scan, findings: Iterable[Finding]) -> None:
+    findings = list(findings)
     open_findings = [f for f in findings if f.status == FindingStatus.OPEN]
+    scan.patched_count = sum(1 for f in findings if f.status == FindingStatus.PATCH_APPLIED)
     scan.hardening_score = max(0, 100 - sum(PENALTIES[f.severity] for f in open_findings))
     scan.total_findings = len(open_findings)
     for sev in ("critical", "high", "medium", "low"):

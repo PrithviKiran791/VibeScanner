@@ -169,9 +169,31 @@ def _client(completions: _StubCompletions):
     return SimpleNamespace(chat=SimpleNamespace(completions=completions))
 
 
+class _Stream(list):
+    """A streamed completion: iterable chunks plus close(), like openai.Stream."""
+
+    closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def _chunk(content=None, finish_reason=None, refusal=None):
+    delta = SimpleNamespace(content=content, refusal=refusal)
+    return SimpleNamespace(choices=[SimpleNamespace(delta=delta, finish_reason=finish_reason)])
+
+
 def _completion(content: str, finish_reason: str = "stop", refusal: str | None = None):
-    message = SimpleNamespace(content=content, refusal=refusal)
-    return SimpleNamespace(choices=[SimpleNamespace(message=message, finish_reason=finish_reason)])
+    # Split the text across chunks, then a usage-only chunk with no choices, as OpenRouter does
+    half = len(content) // 2
+    return _Stream(
+        [
+            _chunk(content[:half] or None),
+            _chunk(content[half:] or None, refusal=refusal),
+            _chunk(finish_reason=finish_reason),
+            SimpleNamespace(choices=[], usage=SimpleNamespace(completion_tokens=1)),
+        ]
+    )
 
 
 def _status_error(cls, status: int):
@@ -195,6 +217,8 @@ def test_request_shape_and_parse():
     assert call["model"] == PRIMARY
     assert call["response_format"] == {"type": "json_object"}
     assert call["temperature"] == 0
+    assert call["stream"] is True
+    assert call["extra_body"] == {"reasoning": {"enabled": True, "exclude": True}}
     system, user = call["messages"]
     assert system["role"] == "system" and '"findings"' in system["content"]
     assert "untrusted input" in system["content"]
@@ -206,22 +230,25 @@ def test_real_client_sends_openrouter_headers():
 
     def handler(req: httpx.Request) -> httpx.Response:
         seen.update(url=str(req.url), headers=dict(req.headers), body=json.loads(req.content))
-        return httpx.Response(
-            200,
-            json={
+
+        def event(delta: dict, finish: str | None = None) -> str:
+            chunk = {
                 "id": "x",
-                "object": "chat.completion",
+                "object": "chat.completion.chunk",
                 "created": 0,
                 "model": PRIMARY,
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": "stop",
-                        "message": {"role": "assistant", "content": '{"findings": []}'},
-                    }
-                ],
-            },
+                "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+            }
+            return f"data: {json.dumps(chunk)}\n\n"
+
+        sse = (
+            ": OPENROUTER PROCESSING\n\n"  # keep-alive comment
+            + event({"role": "assistant", "content": '{"findings": '})
+            + event({"content": "[]}"})
+            + event({}, "stop")
+            + "data: [DONE]\n\n"
         )
+        return httpx.Response(200, text=sse, headers={"content-type": "text/event-stream"})
 
     client = openai.OpenAI(
         base_url="https://openrouter.ai/api/v1",
@@ -236,6 +263,66 @@ def test_real_client_sends_openrouter_headers():
     assert seen["headers"]["http-referer"] == "http://localhost:3000"
     assert seen["headers"]["x-title"] == "VibeGuard"
     assert seen["body"]["response_format"] == {"type": "json_object"}
+    assert seen["body"]["stream"] is True
+    assert seen["body"]["reasoning"] == {"enabled": True, "exclude": True}
+
+
+def test_mid_stream_error_event_falls_back():
+    """HTTP 200, then OpenRouter sends an error event instead of tokens."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        model = json.loads(req.content)["model"]
+        if model == PRIMARY:
+            err = {"error": {"message": "Provider returned error", "code": 429}}
+            return httpx.Response(
+                200,
+                text=f"data: {json.dumps(err)}\n\n",
+                headers={"content-type": "text/event-stream"},
+            )
+        ok = {
+            "id": "x",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": model,
+            "choices": [
+                {"index": 0, "delta": {"content": '{"findings": []}'}, "finish_reason": "stop"}
+            ],
+        }
+        return httpx.Response(
+            200,
+            text=f"data: {json.dumps(ok)}\n\ndata: [DONE]\n\n",
+            headers={"content-type": "text/event-stream"},
+        )
+
+    client = openai.OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key="k",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    provider = OpenRouterProvider(
+        model=PRIMARY, api_key="k", fallback_model=FALLBACK, client=client
+    )
+    assert provider.analyze("x").findings == []
+
+
+def test_reasoning_can_be_turned_off():
+    stub = _StubCompletions({PRIMARY: _completion('{"findings": []}')})
+    provider = OpenRouterProvider(model=PRIMARY, api_key="k", reasoning=False, client=_client(stub))
+    provider.analyze("x")
+    assert stub.calls[0]["extra_body"] is None
+
+
+def test_slow_stream_is_cut_off_at_the_deadline(monkeypatch):
+    import vibeguard.engine.llm.openrouter_provider as mod
+
+    clock = iter([0.0, 1.0, 100.0, 200.0])
+    monkeypatch.setattr(mod.time, "monotonic", lambda: next(clock))
+    stream = _completion('{"findings": []}')
+    stub = _StubCompletions({PRIMARY: stream})
+    provider = OpenRouterProvider(model=PRIMARY, api_key="k", timeout=10, client=_client(stub))
+    with pytest.raises(LLMError, match="longer than 10s"):
+        provider.analyze("x")
+    assert stream.closed
 
 
 def test_rate_limit_falls_back_to_secondary_model():

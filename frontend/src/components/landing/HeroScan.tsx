@@ -3,14 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AuthModal } from "@/components/auth/AuthModal";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { cn } from "@/lib/format";
+import { savePendingScan, takePendingScan } from "@/lib/pendingScan";
 import { normalizeTarget } from "@/lib/target";
 
-/** The hook: paste a repo, land in the dashboard with it pre-filled (sign-in happens there). */
+/**
+ * The hook: paste a repo and it starts scanning in the dashboard. Signed-out visitors get the
+ * sign-in modal first; the repo waits in sessionStorage and /scan starts it after sign-in.
+ */
 export function HeroScan() {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [gate, setGate] = useState<string | null>(null);
+  const { status } = useAuth();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,12 +27,24 @@ export function HeroScan() {
       setError("Paste a GitHub repository, e.g. https://github.com/username/my-vibe-project");
       return;
     }
-    const repo = target.repo_url.replace("https://github.com/", "");
-    router.push(`/scan?target=${encodeURIComponent(repo)}`);
+    savePendingScan(target.repo_url);
+    // "disabled" = no Firebase (local dev): the dashboard runs open
+    if (status === "signed-in" || status === "unverified" || status === "disabled") router.push("/scan");
+    else setGate(target.repo_url);
   }
 
   return (
     <form onSubmit={submit} noValidate className="w-full max-w-[820px]">
+      <AuthModal
+        open={gate !== null}
+        repo={gate}
+        onClose={() => {
+          // Dismissed without signing in: don't start it behind their back later
+          takePendingScan();
+          setGate(null);
+        }}
+        onSignedIn={() => router.push("/scan")}
+      />
       <label htmlFor="repo" className="sr-only">
         GitHub repository URL
       </label>

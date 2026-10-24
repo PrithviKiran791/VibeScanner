@@ -30,6 +30,8 @@ class Counts(BaseModel):
     medium: int
     low: int
     total: int
+    # Fixed through a VibeGuard PR; not part of `total` (which counts OPEN findings only)
+    patched: int
 
 
 class Progress(BaseModel):
@@ -128,6 +130,6 @@ class OpenPullRequestOut(BaseModel):
 
 class MeOut(BaseModel):
     uid: str
-    email: str
+    email: str | None
     name: str | None
     picture: str | None

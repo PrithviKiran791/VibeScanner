@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     llm_fallback_model: str | None = Field(
         default="google/gemma-4-26b-a4b-it:free", validation_alias=_env("LLM_FALLBACK_MODEL")
     )
+    # Let the model think before answering (OpenRouter `reasoning`). Better at spotting missing
+    # auth, but slower: turn off if chunks start hitting the scan deadline.
+    llm_reasoning: bool = Field(default=True, validation_alias=_env("LLM_REASONING"))
     llm_base_url: str = Field(
         default="https://openrouter.ai/api/v1", validation_alias=_env("LLM_BASE_URL")
     )
@@ -87,13 +90,16 @@ class Settings(BaseSettings):
     # Shared secret for GitHub webhook signatures (repo webhook or GitHub App); unset = disabled
     github_webhook_secret: SecretStr | None = None
 
-    # Authentication: Firebase ID tokens (Sign in with Google in the dashboard).
+    # Authentication: Firebase ID tokens (Sign in with GitHub, Google or email in the dashboard).
     # Fails closed: no project ID -> 503 on every protected route; empty allowlist -> 403.
     firebase_project_id: str | None = None
     # Who may use this deployment. PRs are opened with the server's GitHub token, so anyone
     # allowed here can act on GitHub as that token: keep it tight.
     auth_allowed_emails: list[str] = []
     auth_allowed_domains: list[str] = []
+    # Numeric GitHub account ids (https://api.github.com/users/<login> -> "id"). Firebase never
+    # marks GitHub emails as verified, so GitHub sign-ins are allowlisted by account instead.
+    auth_allowed_github_ids: list[str] = []
     # Local development only (the Docker-free devserver sets it). Never in production.
     auth_disabled: bool = False
 

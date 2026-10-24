@@ -137,8 +137,17 @@ function AccessProblem({ denied, message }: { denied: boolean; message: string }
       <p className="mt-3 text-[14px] leading-relaxed text-bone/85">{message}</p>
       {denied && (
         <p className="mt-3 text-[13px] leading-relaxed text-ash">
-          Ask the person who runs this VibeGuard to add your email to{" "}
-          <code className="code text-bone">VIBEGUARD_AUTH_ALLOWED_EMAILS</code>.
+          {message.startsWith("GitHub account") ? (
+            <>
+              Ask the person who runs this VibeGuard to add that account id to{" "}
+              <code className="code text-bone">VIBEGUARD_AUTH_ALLOWED_GITHUB_IDS</code>.
+            </>
+          ) : (
+            <>
+              Ask the person who runs this VibeGuard to add your email to{" "}
+              <code className="code text-bone">VIBEGUARD_AUTH_ALLOWED_EMAILS</code>.
+            </>
+          )}
         </p>
       )}
       <button type="button" className="btn btn-neutral mt-6" onClick={signOut}>

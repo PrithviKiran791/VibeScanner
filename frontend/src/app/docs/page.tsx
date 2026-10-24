@@ -295,7 +295,7 @@ vibeguard scan upload.zip`}</CodeBlock>
       >
         <ol className="space-y-3">
           <Step n={1}>
-            In the <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-secure underline-offset-4 hover:underline">Firebase console</a>, create a project, open Authentication → Sign-in method, and enable <b className="text-bone">Google</b> and <b className="text-bone">Email/Password</b>.
+            In the <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-secure underline-offset-4 hover:underline">Firebase console</a>, create a project, open Authentication → Sign-in method, and enable <b className="text-bone">GitHub</b>, <b className="text-bone">Google</b> and <b className="text-bone">Email/Password</b>. For GitHub, create an OAuth app at GitHub → Settings → Developer settings, paste its client ID and secret into Firebase, and set the app&apos;s callback URL to the one Firebase shows.
           </Step>
           <Step n={2}>
             Project settings → Your apps → add a <b className="text-bone">Web app</b>, then copy its config into <C>frontend/.env.local</C>:
@@ -315,7 +315,9 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:1234:web:abcd`}</CodeBlock>
         <div className="mt-3 grid gap-3">
           <CodeBlock label="backend/.env">{`VIBEGUARD_FIREBASE_PROJECT_ID=your-project
 VIBEGUARD_AUTH_ALLOWED_EMAILS=["you@gmail.com"]
-VIBEGUARD_AUTH_ALLOWED_DOMAINS=[]`}</CodeBlock>
+VIBEGUARD_AUTH_ALLOWED_DOMAINS=[]
+# GitHub sign-ins: numeric ids from https://api.github.com/users/<login>
+VIBEGUARD_AUTH_ALLOWED_GITHUB_IDS=["1234567"]`}</CodeBlock>
         </div>
         <ol className="mt-4 space-y-3" start={4}>
           <Step n={4}>
@@ -325,7 +327,9 @@ VIBEGUARD_AUTH_ALLOWED_DOMAINS=[]`}</CodeBlock>
         <ul className="mt-6 space-y-3 text-[14px] leading-relaxed text-bone/85">
           <Bullet>It fails closed: with no project ID the API answers 503, and with an empty allowlist nobody gets in.</Bullet>
           <Bullet>Email/password accounts must verify their address before the API accepts them, so nobody can sign up with an email they don&apos;t own.</Bullet>
-          <Bullet>Scans and fix PRs record who started them. PRs still use the server&apos;s GitHub token, so allowlist only people you&apos;d trust with it.</Bullet>
+          <Bullet>Firebase never marks GitHub emails as verified, so GitHub users are allowlisted by their GitHub account id instead of their email.</Bullet>
+          <Bullet>Every scan belongs to the person who started it: history, findings, triage, PRs and delete only work on your own scans, and anyone else&apos;s scan answers 404. Webhook scans go to whoever last scanned that repo by hand.</Bullet>
+          <Bullet>PRs still use the server&apos;s GitHub token, so allowlist only people you&apos;d trust with it.</Bullet>
           <Bullet>For local hacking without Firebase, leave both sides unset: the Docker-free devserver runs with auth disabled.</Bullet>
         </ul>
       </Section>

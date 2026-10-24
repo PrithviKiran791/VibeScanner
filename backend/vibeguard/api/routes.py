@@ -7,9 +7,10 @@ from typing import Annotated
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from redis.exceptions import RedisError
-from sqlalchemy import case, select
+from sqlalchemy import case, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vibeguard.api.accounts import CurrentAccount, current_account
 from vibeguard.api.auth import CurrentUser, current_user
 from vibeguard.api.deps import Dispatcher, get_dispatcher, get_github_client, get_redis
 from vibeguard.api.enqueue import QueueUnavailableError, ScanAlreadyRunningError, enqueue_scan
@@ -33,7 +34,9 @@ from vibeguard.db.models import (
     PullRequest,
     Scan,
     ScanSource,
+    User,
 )
+from vibeguard.db.models import Remediation as RemediationRow
 from vibeguard.db.scoring import apply_score
 from vibeguard.db.session import get_session
 from vibeguard.engine.ingest.workspace import IngestError
@@ -79,14 +82,16 @@ async def create_scan(
     r: RedisDep,
     settings: SettingsDep,
     dispatch: DispatchDep,
-    user: CurrentUser,
+    account: CurrentAccount,
 ) -> ScanOut:
     target = _target_from(body, settings)
     try:
-        scan = await enqueue_scan(target, body.options, session, r, dispatch, created_by=user.email)
+        scan = await enqueue_scan(target, body.options, session, r, dispatch, owner=account)
     except ScanAlreadyRunningError as exc:
+        # Point at the running scan only if it's theirs; someone else's id would just 404
+        running = await _owned_scan_id(session, exc.scan_id, account)
         raise HTTPException(
-            status.HTTP_409_CONFLICT, detail={"message": str(exc), "scan_id": exc.scan_id}
+            status.HTTP_409_CONFLICT, detail={"message": str(exc), "scan_id": running}
         ) from None
     except QueueUnavailableError:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Task queue unavailable") from None
@@ -95,28 +100,54 @@ async def create_scan(
     return await _scan_out(scan, r)
 
 
-@router.get("/me", response_model=MeOut)
+@router.get("/me", response_model=MeOut, dependencies=[Depends(current_account)])
 async def me(user: CurrentUser) -> MeOut:
-    """Who the dashboard is signed in as (and proof the session is accepted)."""
+    """Who the dashboard is signed in as (and proof the session is accepted).
+
+    The dashboard calls this right after sign-in, so it's also where the users row is created.
+    """
     return MeOut(uid=user.uid, email=user.email, name=user.name, picture=user.picture)
 
 
 @router.get("/scans", response_model=list[ScanOut])
-async def list_scans(session: SessionDep, r: RedisDep, limit: int = 20) -> list[ScanOut]:
-    """Most recent first, for the Scan History view."""
+async def list_scans(
+    session: SessionDep, r: RedisDep, account: CurrentAccount, limit: int = 20
+) -> list[ScanOut]:
+    """The signed-in user's scans, most recent first, for the Scan History view."""
     limit = max(1, min(limit, 100))
-    scans = await session.scalars(select(Scan).order_by(Scan.created_at.desc()).limit(limit))
+    scans = await session.scalars(
+        select(Scan).where(Scan.user_id == account.id).order_by(Scan.created_at.desc()).limit(limit)
+    )
     return [await _scan_out(scan, r) for scan in scans]
 
 
 @router.get("/scans/{scan_id}", response_model=ScanOut)
-async def get_scan(scan_id: uuid.UUID, session: SessionDep, r: RedisDep) -> ScanOut:
-    return await _scan_out(await _get_scan(session, scan_id), r)
+async def get_scan(
+    scan_id: uuid.UUID, session: SessionDep, r: RedisDep, account: CurrentAccount
+) -> ScanOut:
+    return await _scan_out(await _get_scan(session, scan_id, account), r)
+
+
+@router.delete("/scans/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_scan(scan_id: uuid.UUID, session: SessionDep, account: CurrentAccount) -> None:
+    """Remove a finished scan and its findings from the user's history."""
+    scan = await _get_scan(session, scan_id, account)
+    if not scan.status.terminal:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Wait for the scan to finish first")
+    # Explicit deletes: SQLite doesn't enforce ON DELETE CASCADE without a pragma
+    finding_ids = select(Finding.id).where(Finding.scan_id == scan.id).scalar_subquery()
+    await session.execute(delete(PullRequest).where(PullRequest.finding_id.in_(finding_ids)))
+    await session.execute(delete(RemediationRow).where(RemediationRow.finding_id.in_(finding_ids)))
+    await session.execute(delete(Finding).where(Finding.scan_id == scan.id))
+    await session.execute(delete(Scan).where(Scan.id == scan.id))
+    await session.commit()
 
 
 @router.get("/scans/{scan_id}/findings", response_model=list[FindingOut])
-async def list_findings(scan_id: uuid.UUID, session: SessionDep) -> list[Finding]:
-    await _get_scan(session, scan_id)
+async def list_findings(
+    scan_id: uuid.UUID, session: SessionDep, account: CurrentAccount
+) -> list[Finding]:
+    await _get_scan(session, scan_id, account)
     rows = await session.scalars(
         select(Finding)
         .where(Finding.scan_id == scan_id)
@@ -131,12 +162,9 @@ async def list_findings(scan_id: uuid.UUID, session: SessionDep) -> list[Finding
     dependencies=[Depends(rate_limit("triage", lambda s: s.rate_limit_triage_per_minute))],
 )
 async def update_finding(
-    finding_id: uuid.UUID, body: FindingUpdate, session: SessionDep
+    finding_id: uuid.UUID, body: FindingUpdate, session: SessionDep, account: CurrentAccount
 ) -> FindingUpdateOut:
-    finding = await session.get(Finding, finding_id)
-    if finding is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
-    scan = await _get_scan(session, finding.scan_id)
+    finding, scan = await _get_finding(session, finding_id, account)
 
     finding.status = body.status
     siblings = list(await session.scalars(select(Finding).where(Finding.scan_id == scan.id)))
@@ -160,12 +188,10 @@ async def open_pull_request(
     session: SessionDep,
     github: GitHubDep,
     user: CurrentUser,
+    account: CurrentAccount,
 ) -> OpenPullRequestOut:
     """Apply the finding's fix on a branch and open a PR. Idempotent per finding."""
-    finding = await session.get(Finding, finding_id)
-    if finding is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
-    scan = await _get_scan(session, finding.scan_id)
+    finding, scan = await _get_finding(session, finding_id, account)
 
     created = False
     if finding.pull_request is None:
@@ -247,11 +273,30 @@ def _target_from(body: ScanCreate, settings: Settings) -> TargetSource:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
 
 
-async def _get_scan(session: AsyncSession, scan_id: uuid.UUID) -> Scan:
+async def _get_scan(session: AsyncSession, scan_id: uuid.UUID, account: User) -> Scan:
     scan = await session.get(Scan, scan_id)
-    if scan is None:
+    # Someone else's scan is indistinguishable from a missing one (no id enumeration)
+    if scan is None or scan.user_id != account.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Scan not found")
     return scan
+
+
+async def _get_finding(
+    session: AsyncSession, finding_id: uuid.UUID, account: User
+) -> tuple[Finding, Scan]:
+    finding = await session.get(Finding, finding_id)
+    scan = await session.get(Scan, finding.scan_id) if finding is not None else None
+    if finding is None or scan is None or scan.user_id != account.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
+    return finding, scan
+
+
+async def _owned_scan_id(session: AsyncSession, scan_id: str | None, account: User) -> str | None:
+    try:
+        scan = await session.get(Scan, uuid.UUID(scan_id)) if scan_id else None
+    except ValueError:  # the lock still says "pending"
+        return None
+    return scan_id if scan is not None and scan.user_id == account.id else None
 
 
 async def _scan_out(scan: Scan, r: aioredis.Redis) -> ScanOut:
@@ -297,4 +342,5 @@ def _counts(scan: Scan) -> Counts:
         medium=scan.medium_count,
         low=scan.low_count,
         total=scan.total_findings,
+        patched=scan.patched_count,
     )

@@ -2,6 +2,7 @@
 
 import {
   createUserWithEmailAndPassword,
+  GithubAuthProvider,
   GoogleAuthProvider,
   onIdTokenChanged,
   reload,
@@ -12,7 +13,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
@@ -30,6 +31,7 @@ interface AuthContextValue {
   status: AuthStatus;
   user: User | null;
   access: Access;
+  signInWithGitHub(): Promise<void>;
   signInWithGoogle(): Promise<void>;
   signInWithEmail(email: string, password: string): Promise<void>;
   signUpWithEmail(email: string, password: string): Promise<void>;
@@ -44,7 +46,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(!firebaseEnabled);
   const [emailVerified, setEmailVerified] = useState(false);
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTokenProvider(async (force) => (auth.currentUser ? auth.currentUser.getIdToken(force) : null));
     const unsubscribe = onIdTokenChanged(auth, (u) => {
       setUser(u);
-      setEmailVerified(Boolean(u?.emailVerified));
+      setEmailVerified(isTrusted(u));
       setReady(true);
       if (!u) {
         checkedFor.current = null;
@@ -103,27 +104,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }, [router]);
 
-  // The API rejected even a freshly minted token: the session is gone, start over
+  // The API rejected even a freshly minted token. Firebase still holds a valid session (it would
+  // have signed us out otherwise), so this is a server-side mismatch: signing out here only sent
+  // people round the account picker again and again. Explain it instead.
   useEffect(() => {
     setAuthFailureHandler(() => {
-      if (!firebaseEnabled) return;
-      void firebaseSignOut(firebaseAuth());
-      if (!pathname.startsWith("/login")) {
-        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-      }
+      if (!firebaseEnabled || !firebaseAuth().currentUser) return;
+      setAccess({
+        state: "error",
+        message:
+          "The API rejected your sign-in. Check that the backend's VIBEGUARD_FIREBASE_PROJECT_ID " +
+          "matches NEXT_PUBLIC_FIREBASE_PROJECT_ID, then reload.",
+      });
     });
     return () => setAuthFailureHandler(null);
-  }, [pathname, router]);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
       user,
       access,
-      async signInWithGoogle() {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: "select_account" });
+      async signInWithGitHub() {
+        // Identity only (read:user, user:email). PRs use the server's token, so no `repo` scope
+        const provider = new GithubAuthProvider();
+        provider.addScope("user:email");
         await signInWithPopup(firebaseAuth(), provider);
+      },
+      async signInWithGoogle() {
+        // No forced `prompt: select_account`: Google shows its picker only when it has to
+        await signInWithPopup(firebaseAuth(), new GoogleAuthProvider());
       },
       async signInWithEmail(email, password) {
         await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
@@ -156,6 +166,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/** Firebase never marks GitHub emails verified; the API allowlists GitHub users by account id. */
+function isTrusted(u: User | null): boolean {
+  return Boolean(u && (u.emailVerified || u.providerData.some((p) => p.providerId === "github.com")));
+}
+
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
@@ -176,6 +191,8 @@ export function authErrorMessage(err: unknown): string {
     "auth/missing-password": "Enter your password.",
     "auth/too-many-requests": "Too many attempts. Wait a minute and try again.",
     "auth/network-request-failed": "Network error. Check your connection.",
+    "auth/account-exists-with-different-credential":
+      "This email already signs in another way (Google or password). Use that method instead.",
     "auth/popup-blocked": "The browser blocked the sign-in popup. Allow popups for this site.",
     "auth/popup-closed-by-user": "Sign-in was cancelled.",
     "auth/cancelled-popup-request": "Sign-in was cancelled.",

@@ -1,6 +1,7 @@
 "use client";
 
-import { RotateCw, ShieldCheck } from "lucide-react";
+import { Plus, RotateCw, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
@@ -54,6 +55,10 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
           <>
             <ScorePill score={scan.hardening_score} />
             <RescanButton scan={scan} />
+            <Link href="/scan" className="btn btn-primary px-3 sm:px-4" aria-label="Run another scan">
+              <Plus size={15} strokeWidth={2.5} aria-hidden />
+              <span className="hidden sm:inline">New scan</span>
+            </Link>
           </>
         )
       }

@@ -14,6 +14,7 @@ from vibeguard.api.deps import get_redis
 from vibeguard.api.ratelimit import rate_limit
 from vibeguard.api.webhooks import verify_signature
 from vibeguard.config import get_settings
+from vibeguard.worker.state import lock_key
 
 SECRET = "webhook-test-secret"
 
@@ -122,8 +123,24 @@ async def test_push_to_default_branch_queues_a_github_scan(webhooks_on):
     assert job[0] == body["scan_id"]
     assert job[1] == {"kind": "github", "url": "https://github.com/acme/vibe-app", "path": None}
 
+    # Nobody has scanned this repo by hand, so the push scan has no owner and nobody sees it
+    resp = await svc.client.get(f"/api/v1/scans/{body['scan_id']}")
+    assert resp.status_code == 404
+
+
+async def test_push_scan_goes_to_whoever_last_scanned_the_repo(webhooks_on):
+    svc = webhooks_on
+    manual = await svc.client.post(
+        "/api/v1/scans", json={"repo_url": "https://github.com/acme/vibe-app"}
+    )
+    assert manual.status_code == 202
+    svc.redis.delete(lock_key("https://github.com/acme/vibe-app"))  # as if the worker finished
+
+    body = (await _deliver(svc, _push())).json()
     scan = (await svc.client.get(f"/api/v1/scans/{body['scan_id']}")).json()
     assert scan["source_type"] == "GITHUB" and scan["status"] == "QUEUED"
+    history = (await svc.client.get("/api/v1/scans")).json()
+    assert [s["id"] for s in history] == [body["scan_id"], manual.json()["id"]]
 
 
 async def test_redelivery_does_not_start_a_second_scan(webhooks_on):

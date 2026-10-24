@@ -18,7 +18,7 @@ export interface AuditSummary {
   repos: RepoPosture[];
 }
 
-const ZERO: Counts = { critical: 0, high: 0, medium: 0, low: 0, total: 0 };
+const ZERO: Counts = { critical: 0, high: 0, medium: 0, low: 0, total: 0, patched: 0 };
 
 /** Scans arrive newest first (GET /scans). */
 export function summarize(scans: Scan[]): AuditSummary {
@@ -52,6 +52,7 @@ export function summarize(scans: Scan[]): AuditSummary {
       medium: acc.medium + r.latest.counts.medium,
       low: acc.low + r.latest.counts.low,
       total: acc.total + r.latest.counts.total,
+      patched: acc.patched + r.latest.counts.patched,
     }),
     { ...ZERO },
   );

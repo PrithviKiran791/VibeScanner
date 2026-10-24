@@ -50,6 +50,17 @@ export function relativeTime(iso: string, now = Date.now()): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+/** "Oct 24, 2026 • 2.9s" for a history row (duration omitted while it's unknown). */
+export function scanWhen(iso: string, durationMs: number | null, timeZone?: string): string {
+  const date = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone,
+  }).format(new Date(iso));
+  return durationMs == null ? date : `${date} • ${(durationMs / 1000).toFixed(1)}s`;
+}
+
 /** "https://github.com/acme/app" -> "acme/app"; local paths keep their last two segments. */
 export function shortTarget(target: string): string {
   const gh = /^https:\/\/github\.com\/(.+)$/.exec(target);

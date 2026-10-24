@@ -17,7 +17,10 @@ export interface Counts {
   high: number;
   medium: number;
   low: number;
+  /** Open findings only; patched ones are counted separately */
   total: number;
+  /** Fixed through a VibeGuard PR */
+  patched: number;
 }
 
 export interface Progress {
@@ -109,7 +112,8 @@ export const TERMINAL: ReadonlySet<ScanStatus> = new Set(["COMPLETED", "FAILED"]
 
 export interface Me {
   uid: string;
-  email: string;
+  /** GitHub accounts without a public email have none */
+  email: string | null;
   name: string | null;
   picture: string | null;
 }

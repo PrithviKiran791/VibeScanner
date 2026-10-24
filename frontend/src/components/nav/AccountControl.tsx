@@ -38,12 +38,23 @@ export function AccountControl() {
   return (
     <div className="flex items-stretch border-l-2 border-hairline">
       <div className="hidden items-center gap-2.5 px-4 md:flex" title={user?.email ?? undefined}>
-        <span
-          aria-hidden
-          className="grid h-7 w-7 place-items-center border-2 border-secure bg-grad-secure font-heading text-[12px] font-extrabold text-secure"
-        >
-          {initial}
-        </span>
+        {user?.photoURL ? (
+          // Square avatar, 1px frame; GitHub and Google both serve these from their CDNs
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.photoURL}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="h-7 w-7 border border-hairline object-cover"
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="grid h-7 w-7 place-items-center border-2 border-secure bg-grad-secure font-heading text-[12px] font-extrabold text-secure"
+          >
+            {initial}
+          </span>
+        )}
         <span className="max-w-[180px] truncate text-[13px] font-medium text-bone">{label}</span>
       </div>
       <button

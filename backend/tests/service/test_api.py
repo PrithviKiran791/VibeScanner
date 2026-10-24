@@ -27,7 +27,14 @@ async def test_full_lifecycle_post_to_persisted_findings(service, demo_app):
     done = (await service.client.get(f"/api/v1/scans/{sid}")).json()
     assert done["status"] == "COMPLETED"
     assert done["hardening_score"] == 0
-    assert done["counts"] == {"critical": 5, "high": 2, "medium": 0, "low": 0, "total": 7}
+    assert done["counts"] == {
+        "critical": 5,
+        "high": 2,
+        "medium": 0,
+        "low": 0,
+        "total": 7,
+        "patched": 0,
+    }
     assert done["llm_used"] and done["files_scanned"] == 10
     assert done["duration_ms"] is not None and done["completed_at"] is not None
     assert done["progress"] is None  # terminal scans report from PostgreSQL only
@@ -69,7 +76,14 @@ async def test_patch_finding_recalculates_score(service, demo_app):
     body = resp.json()
     assert body["finding"]["status"] == "DISMISSED_FALSE_POSITIVE"
     assert body["scan"]["hardening_score"] == 100 - 2 * 12  # only the two HIGHs remain open
-    assert body["scan"]["counts"] == {"critical": 0, "high": 2, "medium": 0, "low": 0, "total": 2}
+    assert body["scan"]["counts"] == {
+        "critical": 0,
+        "high": 2,
+        "medium": 0,
+        "low": 0,
+        "total": 2,
+        "patched": 0,
+    }
 
     resp = await service.client.patch(
         f"/api/v1/findings/{criticals[0]['id']}", json={"status": "OPEN"}

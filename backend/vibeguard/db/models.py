@@ -21,6 +21,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -74,6 +75,28 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    """A signed-in person, keyed by their Firebase uid. Created on first authenticated request."""
+
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("firebase_uid", name="uq_users_firebase_uid"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    firebase_uid: Mapped[str] = mapped_column(String(128))
+    # Numeric GitHub account id when they signed in with GitHub (Firebase gives no username)
+    github_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    email: Mapped[str | None] = mapped_column(String(320))
+    name: Mapped[str | None] = mapped_column(String(255))
+    avatar_url: Mapped[str | None] = mapped_column(String(1024))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
+
+    scans: Mapped[list[Scan]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", lazy="raise"
+    )
+
+
 class Repository(Base):
     __tablename__ = "repositories"
 
@@ -99,6 +122,7 @@ class Scan(Base):
     __table_args__ = (
         Index("idx_scans_repo_id", "repo_id"),
         Index("idx_scans_status", "status"),
+        Index("idx_scans_user_created", "user_id", "created_at"),
         CheckConstraint(
             "hardening_score >= 0 AND hardening_score <= 100", name="ck_scans_hardening_score"
         ),
@@ -106,6 +130,11 @@ class Scan(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"))
+    # Owner: only they can see, triage or delete it. NULL only for a webhook scan of a repo
+    # nobody has scanned by hand yet (see enqueue_scan); such scans are visible to no one.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE", name="fk_scans_user_id_users")
+    )
     source_type: Mapped[ScanSource] = mapped_column(_enum(ScanSource, "scan_source"))
     commit_hash: Mapped[str | None] = mapped_column(String(40))
     status: Mapped[ScanStatus] = mapped_column(
@@ -117,6 +146,8 @@ class Scan(Base):
     high_count: Mapped[int] = mapped_column(Integer, default=0)
     medium_count: Mapped[int] = mapped_column(Integer, default=0)
     low_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Findings fixed through a VibeGuard PR (not counted in the open totals above)
+    patched_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     files_scanned: Mapped[int | None] = mapped_column(Integer)
     llm_used: Mapped[bool] = mapped_column(Boolean, default=False)
     warnings: Mapped[list[str]] = mapped_column(JSONType, default=list)
@@ -130,6 +161,7 @@ class Scan(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     repository: Mapped[Repository] = relationship(back_populates="scans", lazy="joined")
+    user: Mapped[User | None] = relationship(back_populates="scans", lazy="raise")
     findings: Mapped[list[Finding]] = relationship(
         back_populates="scan", cascade="all, delete-orphan", lazy="raise"
     )

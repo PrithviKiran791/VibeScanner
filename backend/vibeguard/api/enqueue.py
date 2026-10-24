@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vibeguard.api.deps import Dispatcher
-from vibeguard.db.models import Repository, Scan, ScanSource, ScanStatus
+from vibeguard.db.models import Repository, Scan, ScanSource, ScanStatus, User
 from vibeguard.worker.contracts import ScanOptions, TargetSource
 from vibeguard.worker.state import JOB_TTL_S, LOCK_TTL_S, job_key, lock_key
 
@@ -32,8 +32,13 @@ async def enqueue_scan(
     session: AsyncSession,
     r: aioredis.Redis,
     dispatch: Dispatcher,
-    created_by: str | None = None,
+    owner: User | None = None,
 ) -> Scan:
+    """Queue a scan owned by `owner`.
+
+    Webhook scans have no signed-in user: they go to whoever last scanned the repo by hand, so a
+    push shows up in their history. A repo nobody has scanned yet gets an ownerless scan.
+    """
     canonical = target.canonical
 
     # One active scan per repo (5 min TTL backstop if a worker dies before releasing it)
@@ -48,8 +53,17 @@ async def enqueue_scan(
         if repo is None:
             repo = Repository(name=target.display_name, url=canonical)
             session.add(repo)
+        user_id = owner.id if owner is not None else None
+        if user_id is None and repo.id is not None:
+            user_id = await session.scalar(
+                select(Scan.user_id)
+                .where(Scan.repo_id == repo.id, Scan.user_id.is_not(None))
+                .order_by(Scan.created_at.desc())
+                .limit(1)
+            )
         scan = Scan(
             repository=repo,
+            user_id=user_id,
             source_type=ScanSource.GITHUB if target.kind == "github" else ScanSource.LOCAL,
             status=ScanStatus.QUEUED,
             total_findings=0,
@@ -57,9 +71,10 @@ async def enqueue_scan(
             high_count=0,
             medium_count=0,
             low_count=0,
+            patched_count=0,
             llm_used=False,
             warnings=[],
-            created_by=created_by,
+            created_by=owner.email if owner is not None else None,
         )
         session.add(scan)
         await session.commit()

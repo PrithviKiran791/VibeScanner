@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { errorMessage } from "./api";
-import { relativeTime, scoreBand, shortTarget } from "./format";
+import { relativeTime, scanWhen, scoreBand, shortTarget } from "./format";
 
 describe("format", () => {
   it("bands scores per design.md", () => {
@@ -34,5 +34,12 @@ describe("format", () => {
     ).toBe("Provide exactly one of repo_url or local_path");
     expect(errorMessage({ message: "A scan is already running" }, 409)).toMatch(/already/);
     expect(errorMessage(null, 503)).toBe("The VibeGuard API is unavailable.");
+  });
+});
+
+describe("scanWhen", () => {
+  it("shows the date and run time of a history row", () => {
+    expect(scanWhen("2026-10-24T17:30:00Z", 2890, "UTC")).toBe("Oct 24, 2026 • 2.9s");
+    expect(scanWhen("2026-10-24T17:30:00Z", null, "UTC")).toBe("Oct 24, 2026");
   });
 });

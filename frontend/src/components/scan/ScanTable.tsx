@@ -1,41 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
-import { api } from "@/lib/api";
 import { cn, relativeTime, scoreBand, shortTarget, STATUS_LABEL } from "@/lib/format";
 import type { Scan } from "@/lib/types";
 import { TERMINAL } from "@/lib/types";
+import { useScanList } from "@/lib/useScanList";
 import { Spinner } from "@/components/ui/spinner";
 
 const SCORE_TEXT = { secure: "text-secure", neutral: "text-bone", risk: "text-risk" } as const;
 
 export function ScanTable({ limit, title }: { limit: number; title: string }) {
-  const [scans, setScans] = useState<Scan[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const load = async () => {
-      try {
-        const data = await api.listScans(limit);
-        if (!alive) return;
-        setScans(data);
-        setError(null);
-        // Keep in-flight rows fresh without hammering the API once everything settles
-        if (data.some((s) => !TERMINAL.has(s.status))) timer = setTimeout(load, 2000);
-      } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : "Could not load scans");
-      }
-    };
-    void load();
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [limit]);
+  const { scans, error } = useScanList(limit);
 
   return (
     <section className="border-2 border-hairline bg-carbon" aria-labelledby="scans-title">
