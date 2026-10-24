@@ -551,6 +551,7 @@ export default function ShapeWaves({
         });
         const createMaskTexture = (maskWidth: number, maskHeight: number) =>
           gpu.device.createTexture({
+            kind: '2d', // texture kind must be explicit in vgpu >= 0.5
             size: [maskWidth, maskHeight],
             format: 'rgba8unorm',
             usage: ['texture_binding', 'copy_dst', 'render_attachment'],
@@ -800,9 +801,10 @@ export default function ShapeWaves({
           }
 
           const nextTexture = createMaskTexture(maskWidth, maskHeight);
-          gpu.device.queue.copyExternalImageToTexture(
+          // vgpu 0.5: the native queue/texture hang off `.gpu` (see package.json pin)
+          gpu.gpu.queue.copyExternalImageToTexture(
             { source: maskCanvas },
-            { texture: nextTexture.texture || nextTexture },
+            { texture: nextTexture.gpu },
             [maskWidth, maskHeight]
           );
           scene.set({ maskTexture: nextTexture });

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { HeroBackground } from "@/components/landing/HeroBackground";
 import { HeroScan } from "@/components/landing/HeroScan";
 import { LandingNav } from "@/components/landing/LandingNav";
-import ShapeWaves from "@/components/ShapeWaves";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { cn } from "@/lib/format";
 
@@ -88,31 +88,7 @@ export default function Landing() {
       <main className="pt-nav">
         {/* HERO */}
         <section className="relative overflow-hidden border-b-2 border-hairline">
-          <div aria-hidden className="pointer-events-none absolute inset-0 z-0 opacity-60">
-            <ShapeWaves
-              text="</>"
-              fontFamily="var(--font-heading), sans-serif"
-              fontWeight={800}
-              textSize={0.6}
-              shapes="mixed"
-              cellSize={11}
-              dotSize={0.75}
-              color="#27272a"
-              hoverColor="#10b981"
-              backgroundColor="#09090b"
-              speed={0.8}
-              brightness={0.4}
-              flow={0.15}
-              direction={45}
-              fade={0.35}
-              interactive
-              splashRadius={45}
-              splashStrength={0.45}
-              glow={0.35}
-              intro
-              introDuration={1.6}
-            />
-          </div>
+          <HeroBackground />
           <div className="relative z-10 mx-auto flex max-w-[1180px] flex-col items-start gap-8 px-4 pb-20 pt-16 sm:px-6 sm:pb-28 sm:pt-24">
             <p className="stamp inline-flex items-center gap-2 border-2 border-hairline bg-obsidian px-3 py-1.5 text-[11px] text-ash">
               <span aria-hidden className="blink text-secure">
