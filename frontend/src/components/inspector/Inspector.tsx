@@ -62,7 +62,8 @@ export function Inspector(props: {
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <SeverityBadge severity={f.severity} />
+          <SeverityBadge severity={f.severity} suffix={f.domain === "QUALITY" ? "SMELL" : undefined} />
+          {f.domain === "QUALITY" && <Tag>Code quality · {f.category}</Tag>}
           {f.cwe_id && <Tag>{f.cwe_id}</Tag>}
           <Tag>{f.source === "LLM" ? "Semantic" : f.source === "MERGED" ? "Static + Semantic" : "Static"}</Tag>
           {f.status !== "OPEN" && (

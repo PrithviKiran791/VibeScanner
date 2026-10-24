@@ -26,6 +26,7 @@ from vibeguard.engine.merge import merge_findings
 from vibeguard.engine.models import CodeUnit, Finding, ScanResult
 from vibeguard.engine.scoring import count_by_severity, hardening_index
 from vibeguard.engine.static.deps import ExistenceCache, scan_dependencies
+from vibeguard.engine.static.quality import analyze_quality
 from vibeguard.engine.static.secrets import scan_secrets
 from vibeguard.engine.static.sinks import scan_sinks
 from vibeguard.engine.syntax.routes import extract_units, select_for_llm
@@ -65,6 +66,8 @@ def run_scan(
                 files, registry_cache, settings.registry_timeout_s, transport=registry_transport
             )
         )
+    # Code quality: its own score and QUALITY findings, never part of the Hardening Index
+    quality, quality_findings = analyze_quality(files)
 
     # Pass 2: relevance pruning
     report("PRUNING", 35)
@@ -94,7 +97,11 @@ def run_scan(
 
     # Aggregate + score
     report("SCORING", 90)
-    findings = merge_findings(static, llm)
+    security = merge_findings(static, llm)
+    findings = sorted(
+        security + quality_findings,
+        key=lambda f: (-f.severity.rank, f.domain != "SECURITY", f.file_path, f.line_start),
+    )
     result = ScanResult(
         target=workspace.target,
         commit_hash=workspace.commit_hash,
@@ -106,6 +113,7 @@ def run_scan(
         findings=findings,
         warnings=warnings,
         duration_ms=int((time.monotonic() - started) * 1000),
+        quality=quality,
     )
     report("COMPLETED", 100)
     return result

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from vibeguard.engine.models import Finding, Severity, SeverityCounts
+from vibeguard.engine.models import Finding, FindingDomain, Severity, SeverityCounts
 
 PENALTIES: dict[Severity, int] = {
     Severity.CRITICAL: 25,
@@ -16,12 +16,17 @@ PENALTIES: dict[Severity, int] = {
 
 
 def hardening_index(findings: Iterable[Finding]) -> int:
-    return max(0, 100 - sum(PENALTIES[f.severity] for f in findings))
+    """Security findings only: code-quality smells have their own score (static/quality.py)."""
+    return max(0, 100 - sum(PENALTIES[f.severity] for f in _security(findings)))
 
 
 def count_by_severity(findings: Iterable[Finding]) -> SeverityCounts:
     counts = SeverityCounts()
-    for f in findings:
+    for f in _security(findings):
         attr = f.severity.value.lower()
         setattr(counts, attr, getattr(counts, attr) + 1)
     return counts
+
+
+def _security(findings: Iterable[Finding]) -> Iterable[Finding]:
+    return (f for f in findings if f.domain == FindingDomain.SECURITY)

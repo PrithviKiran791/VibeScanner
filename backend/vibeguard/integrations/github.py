@@ -49,6 +49,8 @@ class FixRequest:
     explanation: str
     unified_diff: str | None
     remediation: Remediation | None
+    # Shown in the PR body when there's no CWE ("Error Hygiene" for a code-quality fix)
+    category: str = "Security"
 
 
 @dataclass(frozen=True)
@@ -183,7 +185,7 @@ def branch_name(fix: FixRequest) -> str:
 
 def pr_body(fix: FixRequest) -> str:
     lines = [
-        f"**{fix.severity}** · {fix.cwe_id or 'Security'} · `{fix.file_path}:{fix.line_start}`",
+        f"**{fix.severity}** · {fix.cwe_id or fix.category} · `{fix.file_path}:{fix.line_start}`",
         "",
         fix.explanation,
     ]

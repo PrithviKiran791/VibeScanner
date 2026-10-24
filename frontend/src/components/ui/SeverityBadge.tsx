@@ -9,7 +9,16 @@ const STYLE: Record<Severity, string> = {
   INFO: "border-hairline text-ash/70",
 };
 
-export function SeverityBadge({ severity, className }: { severity: Severity; className?: string }) {
+/** `suffix` tells findings apart in mixed lists: "HIGH SMELL" vs "CRITICAL SEC". */
+export function SeverityBadge({
+  severity,
+  className,
+  suffix,
+}: {
+  severity: Severity;
+  className?: string;
+  suffix?: string;
+}) {
   return (
     <span
       className={cn(
@@ -19,6 +28,7 @@ export function SeverityBadge({ severity, className }: { severity: Severity; cla
       )}
     >
       {severity}
+      {suffix && ` ${suffix}`}
     </span>
   );
 }

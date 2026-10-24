@@ -28,7 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from vibeguard.engine.models import FindingSource, Severity
+from vibeguard.engine.models import FindingDomain, FindingSource, Severity
 
 
 class ScanStatus(StrEnum):
@@ -126,6 +126,9 @@ class Scan(Base):
         CheckConstraint(
             "hardening_score >= 0 AND hardening_score <= 100", name="ck_scans_hardening_score"
         ),
+        CheckConstraint(
+            "quality_score >= 0 AND quality_score <= 100", name="ck_scans_quality_score"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -141,6 +144,11 @@ class Scan(Base):
         _enum(ScanStatus, "scan_status"), default=ScanStatus.QUEUED
     )
     hardening_score: Mapped[int | None] = mapped_column(Integer)
+    # Code Quality Score (engine/static/quality.py); NULL when not measured (older scans,
+    # failed scans, repos with no JS/TS/Python)
+    quality_score: Mapped[int | None] = mapped_column(Integer)
+    quality_grade: Mapped[str | None] = mapped_column(String(2))
+    quality_breakdown: Mapped[dict | None] = mapped_column(JSONType)
     total_findings: Mapped[int] = mapped_column(Integer, default=0)
     critical_count: Mapped[int] = mapped_column(Integer, default=0)
     high_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -172,6 +180,7 @@ class Finding(Base):
     __table_args__ = (
         Index("idx_findings_scan_id", "scan_id"),
         Index("idx_findings_severity", "severity"),
+        Index("idx_findings_scan_domain", "scan_id", "domain"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -189,6 +198,11 @@ class Finding(Base):
     unified_diff: Mapped[str | None] = mapped_column(Text)
     explanation: Mapped[str] = mapped_column(Text)
     source: Mapped[FindingSource] = mapped_column(_enum(FindingSource, "finding_source"))
+    domain: Mapped[FindingDomain] = mapped_column(
+        _enum(FindingDomain, "finding_domain"),
+        default=FindingDomain.SECURITY,
+        server_default=FindingDomain.SECURITY.value,
+    )
     status: Mapped[FindingStatus] = mapped_column(
         _enum(FindingStatus, "finding_status"), default=FindingStatus.OPEN
     )

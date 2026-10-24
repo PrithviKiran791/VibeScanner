@@ -16,6 +16,19 @@ def to_markdown(result: ScanResult) -> str:
         "",
         f"**Hardening Index: {result.hardening_score}/100**",
         "",
+    ]
+    if result.quality is not None:
+        q, b = result.quality, result.quality.breakdown
+        lines += [
+            f"**Code Quality: {q.score}/100 ({q.grade})**",
+            "",
+            "| Modularity | Type safety | Error hygiene | Cleanliness | Architecture |",
+            "| :-: | :-: | :-: | :-: | :-: |",
+            f"| {b.modularity} | {b.type_safety} | {b.error_hygiene} | {b.cleanliness} "
+            f"| {b.architecture} |",
+            "",
+        ]
+    lines += [
         "| Critical | High | Medium | Low |",
         "| :-: | :-: | :-: | :-: |",
         f"| {c.critical} | {c.high} | {c.medium} | {c.low} |",
@@ -29,8 +42,9 @@ def to_markdown(result: ScanResult) -> str:
         lines += [f"Commit: `{result.commit_hash}`", ""]
 
     for i, f in enumerate(result.findings, start=1):
+        tag = f"{f.severity} smell" if f.domain == "QUALITY" else f.severity
         lines += [
-            f"## {i}. [{f.severity}] {f.title}",
+            f"## {i}. [{tag}] {f.title}",
             "",
             f"`{f.file_path}:{f.line_start}` · {f.cwe_id or f.category}",
             "",

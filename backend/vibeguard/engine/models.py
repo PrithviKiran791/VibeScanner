@@ -32,6 +32,13 @@ _SEVERITY_RANK = {
 }
 
 
+class FindingDomain(StrEnum):
+    """SECURITY findings feed the Hardening Index; QUALITY findings feed the Code Quality Score."""
+
+    SECURITY = "SECURITY"
+    QUALITY = "QUALITY"
+
+
 class FindingSource(StrEnum):
     STATIC = "STATIC"
     LLM = "LLM"
@@ -75,6 +82,7 @@ class Finding(BaseModel):
     explanation: str
     source: FindingSource = FindingSource.STATIC
     remediation: Remediation | None = None
+    domain: FindingDomain = FindingDomain.SECURITY
 
     def overlaps(self, other: Finding) -> bool:
         return (
@@ -92,6 +100,25 @@ class SeverityCounts(BaseModel):
     info: int = 0
 
 
+class QualityBreakdown(BaseModel):
+    """The five sub-scores behind the Code Quality Score, plus what they were measured on."""
+
+    modularity: int = Field(ge=0, le=100)
+    type_safety: int = Field(ge=0, le=100)
+    error_hygiene: int = Field(ge=0, le=100)
+    cleanliness: int = Field(ge=0, le=100)
+    architecture: int = Field(ge=0, le=100)
+    total_loc: int
+    files_scanned: int
+    code_smells_count: int
+
+
+class QualityReport(BaseModel):
+    score: int = Field(ge=0, le=100)
+    grade: Literal["A", "B", "C", "D", "F"]
+    breakdown: QualityBreakdown
+
+
 class ScanResult(BaseModel):
     target: str
     commit_hash: str | None = None
@@ -103,6 +130,7 @@ class ScanResult(BaseModel):
     findings: list[Finding]
     warnings: list[str] = Field(default_factory=list)
     duration_ms: int
+    quality: QualityReport | None = None
 
 
 @dataclass(frozen=True)

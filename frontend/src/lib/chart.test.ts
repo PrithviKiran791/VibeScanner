@@ -20,6 +20,7 @@ function f(severity: Finding["severity"], category: string, status: Finding["sta
     unified_diff: null,
     explanation: "",
     source: "STATIC",
+    domain: "SECURITY",
     status,
     remediation: null,
     pull_request: null,

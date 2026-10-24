@@ -6,14 +6,18 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import { Inspector } from "@/components/inspector/Inspector";
+import { QualityPill } from "@/components/nav/QualityPill";
 import { ScorePill } from "@/components/nav/ScorePill";
 import { TopNav } from "@/components/nav/TopNav";
 import { ScanProgress } from "@/components/scan/ScanProgress";
+import { DomainTabs } from "@/components/triage/DomainTabs";
 import { FindingList } from "@/components/triage/FindingList";
 import { FindingsChart } from "@/components/triage/FindingsChart";
+import { QualityStrip } from "@/components/triage/QualityStrip";
 import { ApiError, api } from "@/lib/api";
 import { type ChartFilter, matchesFilter } from "@/lib/chart";
 import { shortTarget } from "@/lib/format";
+import { type DomainTab, domainCounts, inDomain } from "@/lib/quality";
 import type { Scan } from "@/lib/types";
 import { TERMINAL } from "@/lib/types";
 import { useScan } from "@/lib/useScan";
@@ -24,10 +28,27 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
   const { scan, findings, error, applyUpdate } = useScan(scanId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ChartFilter>(null);
+  const [domain, setDomain] = useState<DomainTab>("ALL");
   const inspectorRef = useRef<HTMLDivElement>(null);
 
-  // The chart narrows the list; with no filter this is every finding
-  const visible = useMemo(() => findings?.filter((f) => matchesFilter(f, filter)) ?? null, [findings, filter]);
+  // Tabs pick security / quality / all; the chart (or a quality cell) narrows further
+  const inTab = useMemo(() => findings?.filter((f) => inDomain(f, domain)) ?? null, [findings, domain]);
+  const visible = useMemo(() => inTab?.filter((f) => matchesFilter(f, filter)) ?? null, [inTab, filter]);
+
+  function changeDomain(tab: DomainTab) {
+    setDomain(tab);
+    setFilter(null);
+  }
+
+  // A quality-strip cell: list the smells behind that sub-score
+  function pickMetric(category: string | null) {
+    if (category === null) {
+      setFilter(null);
+      return;
+    }
+    setDomain("QUALITY");
+    setFilter({ kind: "category", value: category });
+  }
 
   // Until the user picks one, show the most severe open finding (findings arrive pre-sorted)
   const selected = useMemo(
@@ -54,6 +75,9 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
         scan && (
           <>
             <ScorePill score={scan.hardening_score} />
+            {scan.quality_score !== null && (
+              <QualityPill score={scan.quality_score} grade={scan.quality_grade} />
+            )}
             <RescanButton scan={scan} />
             <Link href="/scan" className="btn btn-primary px-3 sm:px-4" aria-label="Run another scan">
               <Plus size={15} strokeWidth={2.5} aria-hidden />
@@ -121,17 +145,35 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
             <p className="px-5 py-6 text-[14px] text-ash">Loading findings…</p>
           ) : (
             <>
-              <FindingsChart findings={findings} filter={filter} onFilter={setFilter} />
+              <DomainTabs value={domain} counts={domainCounts(findings)} onChange={changeDomain} />
+              <FindingsChart findings={inTab ?? []} filter={filter} onFilter={setFilter} />
               {visible && visible.length > 0 ? (
                 <FindingList findings={visible} selectedId={selected?.id ?? null} onSelect={select} />
               ) : (
-                filter && <p className="px-5 py-6 text-[14px] text-ash">No findings match this filter.</p>
+                (filter || domain !== "ALL") && (
+                  <p className="px-5 py-6 text-[14px] text-ash">
+                    {filter
+                      ? "No findings match this filter."
+                      : domain === "QUALITY"
+                        ? "No code-quality smells found."
+                        : "No security findings."}
+                  </p>
+                )
               )}
               <ScanNotes scan={scan} />
             </>
           )}
         </aside>
         <div ref={inspectorRef} className="scroll-mt-nav lg:overflow-y-auto">
+          {scan.quality_score !== null && scan.quality_grade && scan.quality_breakdown && (
+            <QualityStrip
+              score={scan.quality_score}
+              grade={scan.quality_grade}
+              breakdown={scan.quality_breakdown}
+              filter={domain === "QUALITY" ? filter : null}
+              onPick={pickMetric}
+            />
+          )}
           {selected ? (
             // Keyed so per-finding UI state (errors, "Copied") resets on selection change
             <Inspector key={selected.id} finding={selected} sourceType={scan.source_type} onUpdate={applyUpdate} />

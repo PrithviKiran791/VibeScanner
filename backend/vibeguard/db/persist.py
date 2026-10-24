@@ -26,6 +26,8 @@ def persist_result(scan: Scan, result: ScanResult) -> list[Finding]:
             unified_diff=f.unified_diff,
             explanation=f.explanation,
             source=f.source,
+            # Explicit for the same reason as status: apply_score filters on it pre-flush
+            domain=f.domain,
             # Explicit, not the column default: apply_score reads it before the flush
             status=FindingStatus.OPEN,
             remediation=Remediation(**f.remediation.model_dump()) if f.remediation else None,
@@ -33,6 +35,10 @@ def persist_result(scan: Scan, result: ScanResult) -> list[Finding]:
         for f in result.findings
     ]
     apply_score(scan, rows)
+    if result.quality is not None:
+        scan.quality_score = result.quality.score
+        scan.quality_grade = result.quality.grade
+        scan.quality_breakdown = result.quality.breakdown.model_dump()
     scan.commit_hash = result.commit_hash
     scan.files_scanned = result.files_scanned
     scan.llm_used = result.llm_used

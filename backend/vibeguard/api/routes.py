@@ -245,6 +245,7 @@ def _fix_request(finding: Finding, scan: Scan) -> FixRequest:
         line_start=finding.line_start,
         explanation=finding.explanation,
         unified_diff=finding.unified_diff,
+        category=finding.category,
         remediation=RemediationSpec(
             kind="replace_span",
             file_path=rem.file_path,
@@ -308,6 +309,9 @@ async def _scan_out(scan: Scan, r: aioredis.Redis) -> ScanOut:
         repository=scan.repository.name,
         commit_hash=scan.commit_hash,
         hardening_score=scan.hardening_score,
+        quality_score=scan.quality_score,
+        quality_grade=scan.quality_grade,
+        quality_breakdown=scan.quality_breakdown,
         counts=_counts(scan),
         files_scanned=scan.files_scanned,
         llm_used=scan.llm_used,

@@ -6,7 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from vibeguard.db.models import FindingStatus, ScanSource, ScanStatus
-from vibeguard.engine.models import FindingSource, Severity
+from vibeguard.engine.models import FindingDomain, FindingSource, Severity
 from vibeguard.worker.contracts import ScanOptions
 
 
@@ -47,6 +47,10 @@ class ScanOut(BaseModel):
     repository: str
     commit_hash: str | None
     hardening_score: int | None
+    # Code quality (NULL when not measured): score 0-100, grade A-F, and the five sub-scores
+    quality_score: int | None
+    quality_grade: str | None
+    quality_breakdown: dict | None
     counts: Counts
     files_scanned: int | None
     llm_used: bool
@@ -100,6 +104,7 @@ class FindingOut(BaseModel):
     unified_diff: str | None
     explanation: str
     source: FindingSource
+    domain: FindingDomain
     status: FindingStatus
     remediation: RemediationOut | None
     pull_request: PullRequestOut | None

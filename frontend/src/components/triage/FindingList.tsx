@@ -101,7 +101,7 @@ function Card({
           selected && "translate-x-[2px] translate-y-[2px] !shadow-none",
         )}
       >
-        <SeverityBadge severity={f.severity} />
+        <SeverityBadge severity={f.severity} suffix={f.domain === "QUALITY" ? "SMELL" : "SEC"} />
         <span className="stamp mt-3 block text-[14px] leading-snug">{f.title}</span>
         <span className="code mt-1.5 block truncate text-ash" title={location(f.file_path, f.line_start)}>
           {location(f.file_path, f.line_start)}

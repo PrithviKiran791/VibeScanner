@@ -87,6 +87,16 @@ def _print_report(result: ScanResult, show_diff: bool) -> None:
     c = result.counts
     print(f"\n{BOLD}VIBEGUARD{RESET}  {result.target}")
     print(f"{BOLD}{tone}HARDENING INDEX {score}/100{RESET}")
+    if result.quality is not None:
+        q = result.quality
+        q_tone = GREEN if q.grade in ("A", "B") else RED if q.grade in ("D", "F") else ""
+        b = q.breakdown
+        print(
+            f"{BOLD}{q_tone}CODE QUALITY {q.score}/100 [{q.grade}]{RESET}  "
+            f"{GREY}modularity {b.modularity} | type safety {b.type_safety} | "
+            f"error hygiene {b.error_hygiene} | cleanliness {b.cleanliness} | "
+            f"architecture {b.architecture}{RESET}"
+        )
     print(
         f"CRITICAL {c.critical}  HIGH {c.high}  MEDIUM {c.medium}  LOW {c.low}   "
         f"{GREY}{result.files_scanned} files | {result.duration_ms / 1000:.1f}s | "
@@ -94,8 +104,11 @@ def _print_report(result: ScanResult, show_diff: bool) -> None:
     )
     for f in result.findings:
         sev_color = RED if f.severity in (Severity.CRITICAL, Severity.HIGH) else GREY
-        print(f"{sev_color}{BOLD}[{f.severity}]{RESET} {BOLD}{f.title.upper()}{RESET}")
-        print(f"  {GREY}{f.file_path}:{f.line_start}  {f.cwe_id or ''}  ({f.source}){RESET}")
+        tag = f"{f.severity} SMELL" if f.domain == "QUALITY" else str(f.severity)
+        print(f"{sev_color}{BOLD}[{tag}]{RESET} {BOLD}{f.title.upper()}{RESET}")
+        print(
+            f"  {GREY}{f.file_path}:{f.line_start}  {f.cwe_id or f.category}  ({f.source}){RESET}"
+        )
         print(f"  {f.explanation}")
         if show_diff and f.unified_diff:
             for line in f.unified_diff.splitlines():

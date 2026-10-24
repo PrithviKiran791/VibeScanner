@@ -11,6 +11,20 @@ export type ScanStatus =
 export type ScanSource = "GITHUB" | "ZIP" | "LOCAL";
 export type FindingStatus = "OPEN" | "PATCH_APPLIED" | "DISMISSED_FALSE_POSITIVE" | "RESOLVED";
 export type FindingSource = "STATIC" | "LLM" | "MERGED";
+/** SECURITY feeds the Hardening Index; QUALITY feeds the Code Quality Score */
+export type FindingDomain = "SECURITY" | "QUALITY";
+export type QualityGrade = "A" | "B" | "C" | "D" | "F";
+
+export interface QualityBreakdown {
+  modularity: number;
+  type_safety: number;
+  error_hygiene: number;
+  cleanliness: number;
+  architecture: number;
+  total_loc: number;
+  files_scanned: number;
+  code_smells_count: number;
+}
 
 export interface Counts {
   critical: number;
@@ -36,6 +50,10 @@ export interface Scan {
   repository: string;
   commit_hash: string | null;
   hardening_score: number | null;
+  /** Null when not measured (older scans, or no JS/TS/Python in the repo) */
+  quality_score: number | null;
+  quality_grade: QualityGrade | null;
+  quality_breakdown: QualityBreakdown | null;
   counts: Counts;
   files_scanned: number | null;
   llm_used: boolean;
@@ -83,6 +101,7 @@ export interface Finding {
   unified_diff: string | null;
   explanation: string;
   source: FindingSource;
+  domain: FindingDomain;
   status: FindingStatus;
   remediation: Remediation | null;
   pull_request: PullRequest | null;
