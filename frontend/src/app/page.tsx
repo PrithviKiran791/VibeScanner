@@ -90,12 +90,6 @@ export default function Landing() {
         <section className="border-b-2 border-hairline">
           <div className="mx-auto grid max-w-[1180px] items-stretch gap-12 px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-10">
             <div className="flex flex-col items-start gap-8">
-              <p className="stamp inline-flex items-center gap-2 border-2 border-hairline bg-obsidian px-3 py-1.5 text-[11px] text-ash">
-                <span aria-hidden className="blink text-secure">
-                  ●
-                </span>
-                The vibe-coding era needs hardening
-              </p>
               <h1 className="stamp text-[38px] font-extrabold leading-[1.04] sm:text-[56px] xl:text-[64px]">
                 Vibe-coded apps ship in hours.
                 <br />

@@ -85,18 +85,3 @@
     font-variant-numeric: tabular-nums;
   }
 }
-
-/* Blinking terminal cursor (landing page) */
-@keyframes vg-blink {
-  50% {
-    opacity: 0;
-  }
-}
-.blink {
-  animation: vg-blink 1.1s steps(1) infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .blink {
-    animation: none;
-  }
-}
