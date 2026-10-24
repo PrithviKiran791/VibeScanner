@@ -1,23 +1,47 @@
 "use client";
 
+import {
+  BookOpen,
+  Braces,
+  Code2,
+  FileCode2,
+  GitPullRequest,
+  History,
+  KeyRound,
+  LayoutDashboard,
+  Package,
+  ScanSearch,
+  ShieldAlert,
+  Sparkles,
+  Gauge,
+  Terminal,
+} from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ShieldAlert, BookOpen, Code2 } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import { AccountControl } from "@/components/nav/AccountControl";
-import {
-  Menubar,
-  MenubarContent,
-  MenubarItem,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarTrigger,
-} from "@/components/ui/menubar";
+import { FeatureItem, Menu, MenuItem, MenuLink } from "@/components/ui/navbar-menu";
+import { RULES, rulesFor } from "@/lib/catalog";
+
+type Section = "audit" | "rules" | "docs" | null;
+
+/** Which menu a route belongs to, so the nav always shows where you are. */
+function sectionFor(path: string): Section {
+  if (path === "/" || path.startsWith("/audit") || path.startsWith("/history") || path.startsWith("/scans")) {
+    return "audit";
+  }
+  if (path.startsWith("/rules")) return "rules";
+  if (path.startsWith("/docs")) return "docs";
+  return null;
+}
+
+const ICON = "size-4";
 
 /** The only navigation surface (design.md §5): 64px, no sidebars, no breadcrumbs. */
 export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode }) {
-  const router = useRouter();
+  const [active, setActive] = useState<string | null>(null);
+  const section = sectionFor(usePathname());
 
   return (
     <header className="fixed inset-x-0 top-0 z-30 flex h-nav items-stretch border-b-2 border-hairline bg-obsidian">
@@ -38,72 +62,129 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
         </div>
       )}
 
-      {/* Primary Center Neobrutalism Menubar */}
-      <nav className="flex flex-1 items-center justify-center px-2" aria-label="Primary">
-        <Menubar className="border-0 bg-transparent h-9">
-          <MenubarMenu>
-            <MenubarTrigger className="text-[12px] uppercase tracking-wider font-heading">
-              <Code2 className="mr-1.5 size-3.5 text-secure" />
-              Audit
-            </MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem onClick={() => router.push("/audit")}>Security Overview</MenubarItem>
-              <MenubarSeparator />
-              <MenubarItem onClick={() => router.push("/")}>
-                New Code Scan <MenubarShortcut>⌘N</MenubarShortcut>
-              </MenubarItem>
-              <MenubarItem onClick={() => router.push("/history")}>
-                Scan History <MenubarShortcut>⌘H</MenubarShortcut>
-              </MenubarItem>
-              <MenubarSeparator />
-              <MenubarItem onClick={() => router.push("/docs#demo-app")}>
-                Demo App Workspace
-              </MenubarItem>
-            </MenubarContent>
-          </MenubarMenu>
+      <div className="flex flex-1 items-stretch justify-center">
+        <Menu active={active} setActive={setActive} aria-label="Primary">
+          <MenuItem
+            item="audit"
+            label="Audit"
+            icon={<Code2 className="size-3.5 text-secure" aria-hidden />}
+            current={section === "audit"}
+            active={active}
+            setActive={setActive}
+            panelClassName="sm:w-[540px]"
+          >
+            <div className="grid gap-1 sm:grid-cols-2">
+              <FeatureItem
+                href="/audit"
+                title="Security Overview"
+                description="Every repo's latest score and the issues that keep recurring."
+                icon={<LayoutDashboard className={ICON} />}
+              />
+              <FeatureItem
+                href="/"
+                title="New Code Scan"
+                description="Scan a GitHub repo for secrets, injection and missing auth."
+                icon={<ScanSearch className={ICON} />}
+              />
+              <FeatureItem
+                href="/history"
+                title="Scan History"
+                description="Every past scan, newest first, with live progress."
+                icon={<History className={ICON} />}
+              />
+              <FeatureItem
+                href="/docs#demo-app"
+                title="Demo App"
+                description="An intentionally vulnerable app to try it on."
+                icon={<FileCode2 className={ICON} />}
+              />
+            </div>
+          </MenuItem>
 
-          <MenubarMenu>
-            <MenubarTrigger className="text-[12px] uppercase tracking-wider font-heading">
-              <ShieldAlert className="mr-1.5 size-3.5 text-risk" />
-              Rules
-            </MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem disabled className="font-semibold text-ash text-[11px] uppercase tracking-wider">
-                Active Scanners
-              </MenubarItem>
-              <MenubarItem onClick={() => router.push("/rules#secrets")}>Secrets & Token Leaks</MenubarItem>
-              <MenubarItem onClick={() => router.push("/rules#sinks")}>Tree-sitter AST Sinks</MenubarItem>
-              <MenubarItem onClick={() => router.push("/rules#supply-chain")}>
-                Supply Chain Typosquatting
-              </MenubarItem>
-              <MenubarSeparator />
-              <MenubarItem onClick={() => router.push("/rules#semantic")}>
-                LLM Semantic Review (Gemma)
-              </MenubarItem>
-              <MenubarSeparator />
-              <MenubarItem onClick={() => router.push("/rules")}>All Rules</MenubarItem>
-            </MenubarContent>
-          </MenubarMenu>
+          <MenuItem
+            item="rules"
+            label="Rules"
+            icon={<ShieldAlert className="size-3.5 text-risk" aria-hidden />}
+            current={section === "rules"}
+            active={active}
+            setActive={setActive}
+            panelClassName="sm:w-[540px]"
+          >
+            <div className="grid gap-1 sm:grid-cols-2">
+              <FeatureItem
+                href="/rules#secrets"
+                title="Secrets"
+                meta={`${rulesFor("secrets").length} rules`}
+                description="Provider keys, Supabase service roles, public-prefixed secrets."
+                icon={<KeyRound className={ICON} />}
+              />
+              <FeatureItem
+                href="/rules#sinks"
+                title="AST Sinks"
+                meta={`${rulesFor("sinks").length} rules`}
+                description="SQL, XSS, eval and shell injection found by parsing, not grepping."
+                icon={<Braces className={ICON} />}
+              />
+              <FeatureItem
+                href="/rules#supply-chain"
+                title="Supply Chain"
+                meta={`${rulesFor("supply-chain").length} rule`}
+                description="Packages that don't exist on npm or PyPI (slopsquatting)."
+                icon={<Package className={ICON} />}
+              />
+              <FeatureItem
+                href="/rules#semantic"
+                title="Semantic Review"
+                meta="LLM"
+                description="Gemma checks routes and server actions for missing auth and IDOR."
+                icon={<Sparkles className={ICON} />}
+              />
+            </div>
+            <MenuLink href="/rules" className="mt-2">
+              <span>All {RULES.length} rules and fixes</span>
+              <span aria-hidden>→</span>
+            </MenuLink>
+          </MenuItem>
 
-          <MenubarMenu>
-            <MenubarTrigger className="text-[12px] uppercase tracking-wider font-heading">
-              <BookOpen className="mr-1.5 size-3.5 text-ash" />
-              Docs
-            </MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem onClick={() => router.push("/docs")}>Documentation</MenubarItem>
-              <MenubarItem onClick={() => router.push("/docs#pull-requests")}>GitHub PR Fixes</MenubarItem>
-              <MenubarItem onClick={() => router.push("/docs#hardening-index")}>
-                Hardening Index (0–100)
-              </MenubarItem>
-              <MenubarSeparator />
-              <MenubarItem onClick={() => window.open("http://localhost:8000/docs", "_blank", "noopener")}>
-                API Interactive Docs <MenubarShortcut>↗</MenubarShortcut>
-              </MenubarItem>
-            </MenubarContent>
-          </MenubarMenu>
-        </Menubar>
-      </nav>
+          <MenuItem
+            item="docs"
+            label="Docs"
+            icon={<BookOpen className="size-3.5 text-ash" aria-hidden />}
+            current={section === "docs"}
+            active={active}
+            setActive={setActive}
+            panelClassName="sm:w-[340px]"
+          >
+            <div className="grid gap-1">
+              <FeatureItem
+                href="/docs"
+                title="Documentation"
+                description="Pipeline, API, CLI, configuration and security model."
+                icon={<BookOpen className={ICON} />}
+              />
+              <FeatureItem
+                href="/docs#pull-requests"
+                title="Fix Pull Requests"
+                description="How Apply Fix rebuilds a patch on your live branch."
+                icon={<GitPullRequest className={ICON} />}
+              />
+              <FeatureItem
+                href="/docs#hardening-index"
+                title="Hardening Index"
+                description="How the 0 to 100 score is calculated."
+                icon={<Gauge className={ICON} />}
+              />
+              <FeatureItem
+                href="http://localhost:8000/docs"
+                title="API Reference"
+                description="Interactive OpenAPI docs."
+                icon={<Terminal className={ICON} />}
+                external
+              />
+            </div>
+          </MenuItem>
+        </Menu>
+      </div>
 
       {right && (
         <div className="flex items-center gap-3 border-l-2 border-hairline px-3 sm:px-5">{right}</div>
