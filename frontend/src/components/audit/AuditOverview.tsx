@@ -58,7 +58,7 @@ export function AuditOverview() {
       <Panel className="p-8 text-center">
         <p className="stamp text-[18px]">Nothing to audit yet</p>
         <p className="mt-2 text-[14px] text-ash">Finished scans show up here, grouped by repository.</p>
-        <Link href="/" className="btn btn-primary mt-6">
+        <Link href="/scan" className="btn btn-primary mt-6">
           Start a scan <ArrowRight size={16} aria-hidden />
         </Link>
       </Panel>

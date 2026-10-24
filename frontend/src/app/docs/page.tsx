@@ -124,7 +124,7 @@ export default function DocsPage() {
         <ol className="space-y-3">
           <Step n={1}>
             Go to{" "}
-            <Link href="/" className="text-secure underline-offset-4 hover:underline">
+            <Link href="/scan" className="text-secure underline-offset-4 hover:underline">
               Audit → New Code Scan
             </Link>{" "}
             and enter <C>owner/repo</C> or a full GitHub URL.

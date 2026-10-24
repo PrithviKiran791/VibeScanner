@@ -28,7 +28,7 @@ type Section = "audit" | "rules" | "docs" | null;
 
 /** Which menu a route belongs to, so the nav always shows where you are. */
 function sectionFor(path: string): Section {
-  if (path === "/" || path.startsWith("/audit") || path.startsWith("/history") || path.startsWith("/scans")) {
+  if (path.startsWith("/scan") || path.startsWith("/audit") || path.startsWith("/history") || path.startsWith("/scans")) {
     return "audit";
   }
   if (path.startsWith("/rules")) return "rules";
@@ -81,7 +81,7 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
                 icon={<LayoutDashboard className={ICON} />}
               />
               <FeatureItem
-                href="/"
+                href="/scan"
                 title="New Code Scan"
                 description="Scan a GitHub repo for secrets, injection and missing auth."
                 icon={<ScanSearch className={ICON} />}

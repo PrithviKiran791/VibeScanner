@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
@@ -13,7 +13,8 @@ import { Spinner } from "@/components/ui/spinner";
 
 export function NewScanForm() {
   const router = useRouter();
-  const [value, setValue] = useState("");
+  // The landing page hands a repo over as /scan?target=owner/repo
+  const [value, setValue] = useState(useSearchParams().get("target") ?? "");
   const [options, setOptions] = useState<ScanOptions>({ llm: true, registry: true });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

@@ -32,8 +32,9 @@ const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = 
 
 /** Where to go after signing in: ?next=/scans/… (same-site paths only). */
 function nextPath(): string {
-  if (typeof window === "undefined") return "/";
-  return safeNext(new URLSearchParams(window.location.search).get("next"));
+  if (typeof window === "undefined") return "/scan";
+  const next = safeNext(new URLSearchParams(window.location.search).get("next"));
+  return next === "/" ? "/scan" : next; // "/" is the public landing page
 }
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
@@ -102,7 +103,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
             </Link>{" "}
             to turn it on.
           </p>
-          <Button className="mt-6 w-full" onClick={() => router.push("/")}>
+          <Button className="mt-6 w-full" onClick={() => router.push("/scan")}>
             Continue to the dashboard
           </Button>
         </div>
