@@ -83,6 +83,7 @@ def get_provider(settings: Settings) -> LLMProvider | None:
             api_key=settings.openrouter_api_key.get_secret_value(),
             base_url=settings.llm_base_url,
             fallback_model=settings.llm_fallback_model,
+            fallback_models=settings.llm_fallback_models,
             app_url=settings.llm_app_url,
             app_name=settings.llm_app_name,
             timeout=timeout,

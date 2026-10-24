@@ -2,10 +2,11 @@ from celery import Celery
 
 from vibeguard.config import get_settings
 
-SOFT_TIME_LIMIT_S = 60  # PRD NFR: max 60s per job
-HARD_TIME_LIMIT_S = 75  # SIGKILL backstop if the soft limit is swallowed
-
 settings = get_settings()
+
+# The analysis budget plus time to clone the repo and write results
+SOFT_TIME_LIMIT_S = int(settings.scan_deadline_s) + 30
+HARD_TIME_LIMIT_S = SOFT_TIME_LIMIT_S + 15  # SIGKILL backstop if the soft limit is swallowed
 
 celery_app = Celery("vibeguard", broker=settings.redis_url, include=["vibeguard.worker.tasks"])
 celery_app.conf.update(

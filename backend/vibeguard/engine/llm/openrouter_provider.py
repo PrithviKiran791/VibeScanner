@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from typing import Any
 
 import openai
@@ -21,6 +22,8 @@ log = logging.getLogger(__name__)
 MAX_OUTPUT_TOKENS = 8192
 # Reasoning tokens count against max_tokens on OpenRouter: leave room for the thinking too
 MAX_OUTPUT_TOKENS_WITH_REASONING = 16384
+# How long a model that failed (429, 404, 5xx) is skipped for the rest of the scan
+COOLDOWN_S = 60.0
 
 
 class _TryNextModel(Exception):
@@ -41,12 +44,17 @@ class OpenRouterProvider:
         timeout: float = 45.0,
         reasoning: bool = True,
         client: Any | None = None,
+        fallback_models: Sequence[str] = (),
     ) -> None:
         self.timeout = timeout
         self.reasoning = reasoning
-        self.models = [model] + (
-            [fallback_model] if fallback_model and fallback_model != model else []
-        )
+        # Primary first, then fallbacks in order, without duplicates. Free models from different
+        # providers rarely saturate at the same time, so a longer chain keeps the pass alive.
+        chain = [model, *([fallback_model] if fallback_model else []), *fallback_models]
+        self.models = list(dict.fromkeys(m for m in chain if m))
+        # model -> monotonic time until which it's skipped. One provider serves a whole scan,
+        # so a model that just said 429 isn't asked again for every remaining chunk.
+        self._cooldown: dict[str, float] = {}
         self._client = client or openai.OpenAI(
             base_url=base_url,
             api_key=api_key,
@@ -59,12 +67,16 @@ class OpenRouterProvider:
 
     def analyze(self, prompt: str) -> LLMReport:
         reasons: list[str] = []
-        for model in self.models:
+        now = time.monotonic()
+        ready = [m for m in self.models if self._cooldown.get(m, 0.0) <= now]
+        # Everything cooling down: try them all anyway rather than give up without asking
+        for model in ready or self.models:
             try:
                 return self._complete(model, prompt)
             except _TryNextModel as exc:
                 log.warning("OpenRouter model %s unavailable: %s", model, exc)
                 reasons.append(f"{model}: {exc}")
+                self._cooldown[model] = time.monotonic() + COOLDOWN_S
         raise LLMError(
             "All LLM models unavailable (" + "; ".join(reasons) + "); semantic pass skipped"
         )
@@ -137,4 +149,5 @@ class OpenRouterProvider:
         try:
             return parse_report("".join(content))
         except ReportParseError as exc:
-            raise LLMError(f"Model output was not usable JSON ({exc})") from None
+            # Fallbacks are different models: one of them may well follow the format
+            raise _TryNextModel(f"output was not usable JSON ({exc})") from None

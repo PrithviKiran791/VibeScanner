@@ -353,7 +353,6 @@ def test_both_models_rate_limited_raises_llm_error():
         (_completion("", refusal="I can't help with that"), "declined"),
         (_completion("", finish_reason="content_filter"), "declined"),
         (_completion('{"findings": [', finish_reason="length"), "truncated"),
-        (_completion("I found some issues!"), "not usable JSON"),
     ],
 )
 def test_bad_responses_raise_llm_error_without_fallback(response, match):
@@ -381,4 +380,63 @@ def test_get_provider_wires_settings(monkeypatch):
     monkeypatch.setenv("LLM_MODEL", "google/gemma-4-31b-it:free")
     provider = get_provider(Settings(_env_file=None))
     assert isinstance(provider, OpenRouterProvider)
-    assert provider.models == [PRIMARY, FALLBACK]
+    assert provider.models == [
+        PRIMARY,
+        FALLBACK,
+        "nvidia/nemotron-3.5-super-vl:free",
+        "dots-studio/dots-3-note-preview:free",
+    ]
+
+
+THIRD = "nvidia/nemotron-3.5-super-vl:free"
+
+
+def _chain(script: dict):
+    stub = _StubCompletions(script)
+    provider = OpenRouterProvider(
+        model=PRIMARY,
+        api_key="k",
+        fallback_model=FALLBACK,
+        fallback_models=[THIRD, PRIMARY],  # duplicates are dropped
+        client=_client(stub),
+    )
+    return provider, stub
+
+
+def test_other_providers_answer_when_gemma_is_saturated():
+    provider, stub = _chain(
+        {
+            PRIMARY: _status_error(openai.RateLimitError, 429),
+            FALLBACK: _status_error(openai.RateLimitError, 429),
+            THIRD: _completion('{"findings": []}'),
+        }
+    )
+    assert provider.models == [PRIMARY, FALLBACK, THIRD]
+    assert provider.analyze("x").findings == []
+    assert [c["model"] for c in stub.calls] == [PRIMARY, FALLBACK, THIRD]
+
+
+def test_rate_limited_models_are_skipped_for_the_next_chunks():
+    provider, stub = _chain(
+        {
+            PRIMARY: _status_error(openai.RateLimitError, 429),
+            FALLBACK: _status_error(openai.RateLimitError, 429),
+            THIRD: _completion('{"findings": []}'),
+        }
+    )
+    provider.analyze("chunk 1")
+    stub.calls.clear()
+    stub.script[THIRD] = _completion('{"findings": []}')  # a fresh stream for chunk 2
+    provider.analyze("chunk 2")
+    assert [c["model"] for c in stub.calls] == [THIRD]
+
+
+def test_unusable_output_tries_the_next_model():
+    provider, stub = _chain(
+        {
+            PRIMARY: _completion("I found some issues!"),
+            FALLBACK: _completion('{"findings": []}'),
+        }
+    )
+    assert provider.analyze("x").findings == []
+    assert [c["model"] for c in stub.calls] == [PRIMARY, FALLBACK]

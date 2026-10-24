@@ -84,10 +84,23 @@ def github_workspace(
 
 
 def _git(args: list[str], timeout_s: int, error: str) -> str:
-    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "echo"}  # never prompt
+    # Never prompt. GIT_TERMINAL_PROMPT alone isn't enough on Windows: Git Credential Manager
+    # opens a sign-in window on a 401 (private or missing repo) and the clone hangs until the
+    # timeout. Disable credential helpers outright; the token, if any, is in the URL.
+    env = {
+        **os.environ,
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_ASKPASS": "echo",
+        "GCM_INTERACTIVE": "never",
+    }
     try:
         proc = subprocess.run(
-            ["git", *args], capture_output=True, text=True, timeout=timeout_s, env=env, check=True
+            ["git", "-c", "credential.helper=", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            env=env,
+            check=True,
         )
     except subprocess.TimeoutExpired:
         raise IngestError(f"{error}: timed out after {timeout_s}s") from None

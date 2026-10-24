@@ -38,6 +38,7 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-google/gemma-4-31b-it:free}
       LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-google/gemma-4-26b-a4b-it:free}
+      LLM_FALLBACK_MODELS: ${LLM_FALLBACK_MODELS:-["nvidia/nemotron-3.5-super-vl:free","dots-studio/dots-3-note-preview:free"]}
       VIBEGUARD_GITHUB_TOKEN: ${VIBEGUARD_GITHUB_TOKEN:-}
       VIBEGUARD_GITHUB_WEBHOOK_SECRET: ${VIBEGUARD_GITHUB_WEBHOOK_SECRET:-}
       # Sign-in: the API rejects every request until both are set (fails closed)

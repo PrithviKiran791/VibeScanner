@@ -65,6 +65,8 @@ const ENDPOINTS: { method: string; path: string; what: string }[] = [
 const SETTINGS: { name: string; purpose: string }[] = [
   { name: "OPENROUTER_API_KEY", purpose: "Enables the semantic pass. Without it, scans are static-only." },
   { name: "LLM_MODEL / LLM_FALLBACK_MODEL", purpose: "Primary model (google/gemma-4-31b-it:free) and the one tried on 429/5xx." },
+  { name: "LLM_FALLBACK_MODELS", purpose: "JSON list tried next, in order (default: free NVIDIA Nemotron and dots models), so a saturated Gemma pool doesn't skip semantic review." },
+  { name: "SCAN_DEADLINE_S", purpose: "Analysis time budget in seconds (default 150; free models need about a minute per chunk)." },
   { name: "VIBEGUARD_GITHUB_TOKEN", purpose: "Clones private repos and opens fix PRs. Needs repo scope." },
   { name: "VIBEGUARD_GITHUB_WEBHOOK_SECRET", purpose: "Turns on the webhook endpoint and verifies its signatures." },
   { name: "VIBEGUARD_FIREBASE_PROJECT_ID", purpose: "Firebase project whose ID tokens the API accepts." },

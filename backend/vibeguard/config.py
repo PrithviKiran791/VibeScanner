@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     llm_fallback_model: str | None = Field(
         default="google/gemma-4-26b-a4b-it:free", validation_alias=_env("LLM_FALLBACK_MODEL")
     )
+    # Then these, in order (JSON list). Free models from other providers: when Google's free
+    # Gemma pool is saturated (429 for everyone), one of these usually still answers.
+    llm_fallback_models: list[str] = Field(
+        default=["nvidia/nemotron-3.5-super-vl:free", "dots-studio/dots-3-note-preview:free"],
+        validation_alias=_env("LLM_FALLBACK_MODELS"),
+    )
     # Let the model think before answering (OpenRouter `reasoning`). Better at spotting missing
     # auth, but slower: turn off if chunks start hitting the scan deadline.
     llm_reasoning: bool = Field(default=True, validation_alias=_env("LLM_REASONING"))
@@ -60,8 +66,10 @@ class Settings(BaseSettings):
     llm_chunk_chars: int = 24_000
     llm_concurrency: int = 4
 
-    # Whole-scan wall clock budget (NFR: 60s worker timeout, leave headroom)
-    scan_deadline_s: float = 55.0
+    # Whole-scan wall clock budget for the analysis (the worker's time limits derive from it).
+    # Was 55s (PRD: 60s per job), but free OpenRouter models need about a minute for one
+    # chunk, so semantic review never finished; 150s lets it complete.
+    scan_deadline_s: float = 150.0
 
     # Service (Phase 2). One URL serves both drivers: SQLAlchemy's psycopg dialect is sync+async.
     database_url: str = "postgresql+psycopg://vibeguard:vibeguard@localhost:5432/vibeguard"
