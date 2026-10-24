@@ -9,7 +9,9 @@ import { ScorePill } from "@/components/nav/ScorePill";
 import { TopNav } from "@/components/nav/TopNav";
 import { ScanProgress } from "@/components/scan/ScanProgress";
 import { FindingList } from "@/components/triage/FindingList";
+import { FindingsChart } from "@/components/triage/FindingsChart";
 import { ApiError, api } from "@/lib/api";
+import { type ChartFilter, matchesFilter } from "@/lib/chart";
 import { shortTarget } from "@/lib/format";
 import type { Scan } from "@/lib/types";
 import { TERMINAL } from "@/lib/types";
@@ -20,16 +22,20 @@ import { Spinner } from "@/components/ui/spinner";
 export function ScanWorkspace({ scanId }: { scanId: string }) {
   const { scan, findings, error, applyUpdate } = useScan(scanId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ChartFilter>(null);
   const inspectorRef = useRef<HTMLDivElement>(null);
+
+  // The chart narrows the list; with no filter this is every finding
+  const visible = useMemo(() => findings?.filter((f) => matchesFilter(f, filter)) ?? null, [findings, filter]);
 
   // Until the user picks one, show the most severe open finding (findings arrive pre-sorted)
   const selected = useMemo(
     () =>
-      findings?.find((f) => f.id === selectedId) ??
-      findings?.find((f) => f.status === "OPEN") ??
-      findings?.[0] ??
+      visible?.find((f) => f.id === selectedId) ??
+      visible?.find((f) => f.status === "OPEN") ??
+      visible?.[0] ??
       null,
-    [findings, selectedId],
+    [visible, selectedId],
   );
 
   function select(id: string) {
@@ -110,7 +116,12 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
             <p className="px-5 py-6 text-[14px] text-ash">Loading findings…</p>
           ) : (
             <>
-              <FindingList findings={findings} selectedId={selected?.id ?? null} onSelect={select} />
+              <FindingsChart findings={findings} filter={filter} onFilter={setFilter} />
+              {visible && visible.length > 0 ? (
+                <FindingList findings={visible} selectedId={selected?.id ?? null} onSelect={select} />
+              ) : (
+                filter && <p className="px-5 py-6 text-[14px] text-ash">No findings match this filter.</p>
+              )}
               <ScanNotes scan={scan} />
             </>
           )}
@@ -120,7 +131,7 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
             // Keyed so per-finding UI state (errors, "Copied") resets on selection change
             <Inspector key={selected.id} finding={selected} sourceType={scan.source_type} onUpdate={applyUpdate} />
           ) : (
-            findings !== null && <AllClear score={scan.hardening_score} />
+            findings !== null && findings.length === 0 && <AllClear score={scan.hardening_score} />
           )}
         </div>
       </main>
