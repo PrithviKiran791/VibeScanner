@@ -87,26 +87,28 @@ export default function Landing() {
       <LandingNav />
       <main className="pt-nav">
         {/* HERO */}
-        <section className="relative overflow-hidden border-b-2 border-hairline">
-          <HeroBackground />
-          <div className="relative z-10 mx-auto flex max-w-[1180px] flex-col items-start gap-8 px-4 pb-20 pt-16 sm:px-6 sm:pb-28 sm:pt-24">
-            <p className="stamp inline-flex items-center gap-2 border-2 border-hairline bg-obsidian px-3 py-1.5 text-[11px] text-ash">
-              <span aria-hidden className="blink text-secure">
-                ●
-              </span>
-              The vibe-coding era needs hardening
-            </p>
-            <h1 className="stamp max-w-[18ch] text-[40px] font-extrabold leading-[1.02] sm:max-w-none sm:text-[64px] lg:text-[80px]">
-              Vibe-coded apps ship in hours.
-              <br />
-              <span className="text-risk">Hackers exploit them in seconds.</span>
-            </h1>
-            <p className="max-w-[64ch] text-[16px] leading-relaxed text-bone/80 sm:text-[17px]">
-              Cursor and Claude write code that works, but often miss basic auth, leak client-side
-              secrets, and import hallucinated packages. VibeGuard runs AST analysis and semantic
-              verification to find your vulnerabilities and auto-generate the fix.
-            </p>
-            <HeroScan />
+        <section className="border-b-2 border-hairline">
+          <div className="mx-auto grid max-w-[1180px] items-stretch gap-12 px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-10">
+            <div className="flex flex-col items-start gap-8">
+              <p className="stamp inline-flex items-center gap-2 border-2 border-hairline bg-obsidian px-3 py-1.5 text-[11px] text-ash">
+                <span aria-hidden className="blink text-secure">
+                  ●
+                </span>
+                The vibe-coding era needs hardening
+              </p>
+              <h1 className="stamp text-[38px] font-extrabold leading-[1.04] sm:text-[56px] xl:text-[64px]">
+                Vibe-coded apps ship in hours.
+                <br />
+                <span className="text-risk">Hackers exploit them in seconds.</span>
+              </h1>
+              <p className="max-w-[60ch] text-[16px] leading-relaxed text-bone/80 sm:text-[17px]">
+                Cursor and Claude write code that works, but often miss basic auth, leak client-side
+                secrets, and import hallucinated packages. VibeGuard runs AST analysis and semantic
+                verification to find your vulnerabilities and auto-generate the fix.
+              </p>
+              <HeroScan />
+            </div>
+            <HeroBackground />
           </div>
         </section>
 

@@ -3,6 +3,7 @@
 import { TopNav } from "@/components/nav/TopNav";
 import { LoginForm } from "@/components/login-form";
 import ShapeWaves from "@/components/ShapeWaves";
+import { resolveFontFamily } from "@/lib/canvasFont";
 
 export default function LoginPage() {
   return (
@@ -13,7 +14,7 @@ export default function LoginPage() {
         <div className="pointer-events-none absolute inset-0 z-0 opacity-50">
           <ShapeWaves
             text="</>"
-            fontFamily="var(--font-heading), sans-serif"
+            fontFamily={resolveFontFamily("--font-heading")}
             fontWeight={800}
             textSize={0.6}
             shapes="mixed"
