@@ -113,7 +113,7 @@ function Toggle(props: {
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-start gap-3 border-2 p-3 transition-colors",
+        "flex cursor-pointer items-start gap-3 rounded-ctl border-2 p-3 transition-colors",
         props.checked ? "border-secure/60 bg-grad-secure" : "border-hairline",
       )}
     >

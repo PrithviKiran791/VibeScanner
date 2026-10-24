@@ -4,7 +4,8 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
-    borderRadius: { none: "0px", base: "0px" },
+    // Cards, panels and nav stay square; inputs and buttons use the "ctl" (control) radius
+    borderRadius: { none: "0px", base: "0px", ctl: "10px" },
     extend: {
       fontFamily: {
         heading: ["var(--font-heading)", "sans-serif"],

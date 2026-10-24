@@ -30,7 +30,7 @@ export function HeroScan() {
       </label>
       <div
         className={cn(
-          "flex flex-col border-2 bg-carbon transition-[box-shadow,border-color] duration-[60ms] ease-linear sm:flex-row",
+          "flex flex-col overflow-hidden rounded-ctl border-2 bg-carbon transition-[box-shadow,border-color] duration-[60ms] ease-linear sm:flex-row",
           "focus-within:border-bone focus-within:shadow-hard-secure",
           error ? "border-risk" : "border-hairline",
         )}
@@ -51,7 +51,7 @@ export function HeroScan() {
         />
         <button
           type="submit"
-          className="btn btn-primary h-14 shrink-0 border-0 border-t-2 border-t-hairline px-6 text-[14px] sm:h-auto sm:border-l-2 sm:border-t-0 sm:border-l-hairline"
+          className="btn btn-primary h-14 shrink-0 !rounded-none border-0 border-t-2 border-t-hairline px-6 text-[14px] sm:h-auto sm:border-l-2 sm:border-t-0 sm:border-l-hairline"
         >
           Scan repository <span aria-hidden>→</span>
         </button>

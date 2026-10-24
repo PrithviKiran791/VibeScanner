@@ -15,7 +15,7 @@ VibeGuard shows **only what is required to understand and fix a vulnerability in
 
 | Rule | Value |
 | :--- | :--- |
-| **Border radius** | `0px` everywhere — cards, buttons, badges, inputs, code blocks (`rounded-none`). |
+| **Border radius** | `0px` on cards, panels, nav, badges and code blocks (`rounded-none`). **Inputs and buttons use `rounded-ctl` (`10px`)**, defined once in `tailwind.config.ts` and applied through `.btn`, `.field` and the shadcn `Button`. |
 | **Structural border width** | `2px` for layout dividers and cards; `1.5px` allowed for dense inner rows. |
 | **Border colors** | `#27272A` default · `#EF4444` active critical · `#10B981` patched / safe. |
 | **Blur** | Forbidden. No `blur()`, no `backdrop-filter`, no soft `box-shadow`. |
@@ -132,7 +132,7 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   content: ["./src/**/*.{ts,tsx,mdx}"],
   theme: {
-    borderRadius: { none: "0px" }, // removes every rounded-* utility except rounded-none
+    borderRadius: { none: "0px", ctl: "10px" }, // only these two exist; ctl = inputs and buttons
     extend: {
       fontFamily: {
         heading: ["var(--font-heading)", "sans-serif"],
