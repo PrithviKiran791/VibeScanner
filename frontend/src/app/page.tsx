@@ -4,6 +4,7 @@ import Link from "next/link";
 import { HeroBackground } from "@/components/landing/HeroBackground";
 import { HeroScan } from "@/components/landing/HeroScan";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { AppIcon, type AppIconName } from "@/components/ui/AppIcon";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { cn } from "@/lib/format";
 
@@ -44,13 +45,14 @@ const AFTER: Row[] = [
   { kind: "ctx", text: "}" },
 ];
 
-const PATTERNS = [
+const PATTERNS: { n: string; title: string; body: string; tag: string; tone: "risk" | "secure"; icon: AppIconName }[] = [
   {
     n: "01",
     title: "Slopsquatting & Hallucinated Packages",
     body: "LLMs invent package names. Attackers register them with malware. VibeGuard checks every npm and PyPI dependency against the live registry and flags the ones that don't exist.",
     tag: "SUPPLY CHAIN · CWE-1357",
     tone: "risk",
+    icon: "failed",
   },
   {
     n: "02",
@@ -58,6 +60,7 @@ const PATTERNS = [
     body: "Stripe keys, Supabase service-role tokens and AWS credentials baked into source, committed .env files, or hiding behind a NEXT_PUBLIC_ prefix that ships them to every browser.",
     tag: "SECRETS · CWE-798 · CWE-200",
     tone: "risk",
+    icon: "security",
   },
   {
     n: "03",
@@ -65,15 +68,16 @@ const PATTERNS = [
     body: "Pattern matchers can't see a missing permission check. A targeted LLM review reads each route handler and server action and catches the ones that trust the URL instead of the session.",
     tag: "SEMANTIC · CWE-639",
     tone: "secure",
+    icon: "coding",
   },
-] as const;
+];
 
-const STEPS = [
-  ["01", "Clone", "Shallow clone into a throwaway sandbox. Deleted when the scan ends."],
-  ["02", "Static pass", "Secrets, hallucinated packages and injection sinks, found by parsing, not grepping."],
-  ["03", "Semantic pass", "Only your route handlers and server actions go to the model, which must quote the vulnerable lines."],
-  ["04", "Fix", "Every patch is re-parsed, then opened as a pull request on your live branch."],
-] as const;
+const STEPS: { n: string; title: string; body: string; icon: AppIconName }[] = [
+  { n: "01", title: "Clone", body: "Shallow clone into a throwaway sandbox. Deleted when the scan ends.", icon: "clone" },
+  { n: "02", title: "Static pass", body: "Secrets, hallucinated packages and injection sinks, found by parsing, not grepping.", icon: "staticPass" },
+  { n: "03", title: "Semantic pass", body: "Only your route handlers and server actions go to the model, which must quote the vulnerable lines.", icon: "semanticPass" },
+  { n: "04", title: "Fix", body: "Every patch is re-parsed, then opened as a pull request on your live branch.", icon: "fix" },
+];
 
 const METRICS = [
   { value: "0", unit: "files", label: "Components, libs and .env files sent to the LLM. Only route code is reviewed.", tone: "secure" },
@@ -161,14 +165,25 @@ export default function Landing() {
           <div className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6 sm:py-20">
             <SectionHead eyebrow="How it works" title="Four passes. Zero hand-waving." />
             <ol className="grid border-2 border-hairline sm:grid-cols-2 lg:grid-cols-4">
-              {STEPS.map(([n, title, body], i) => (
+              {STEPS.map((step, i) => (
                 <li
-                  key={n}
-                  className={cn("p-6", i > 0 && "border-t-2 border-hairline sm:border-t-0", i % 2 === 1 && "sm:border-l-2", i > 1 && "sm:border-t-2 lg:border-t-0", i > 0 && "lg:border-l-2")}
+                  key={step.n}
+                  className={cn(
+                    "p-6 flex flex-col justify-between",
+                    i > 0 && "border-t-2 border-hairline sm:border-t-0",
+                    i % 2 === 1 && "sm:border-l-2",
+                    i > 1 && "sm:border-t-2 lg:border-t-0",
+                    i > 0 && "lg:border-l-2",
+                  )}
                 >
-                  <span className="font-heading text-[13px] font-extrabold text-secure">{n}</span>
-                  <h3 className="stamp mt-2 text-[16px]">{title}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-ash">{body}</p>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading text-[13px] font-extrabold text-secure">{step.n}</span>
+                      <AppIcon name={step.icon} size={28} alt={step.title} />
+                    </div>
+                    <h3 className="stamp mt-4 text-[16px]">{step.title}</h3>
+                    <p className="mt-2 text-[14px] leading-relaxed text-ash">{step.body}</p>
+                  </div>
                 </li>
               ))}
             </ol>
@@ -190,9 +205,12 @@ export default function Landing() {
                     "hover:relative hover:z-10 hover:-translate-x-0.5 hover:-translate-y-0.5",
                   )}
                 >
-                  <span className={cn("font-heading text-[40px] font-extrabold leading-none", p.tone === "risk" ? "text-risk" : "text-secure")}>
-                    {p.n}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className={cn("font-heading text-[40px] font-extrabold leading-none", p.tone === "risk" ? "text-risk" : "text-secure")}>
+                      {p.n}
+                    </span>
+                    <AppIcon name={p.icon} size={32} alt={p.title} />
+                  </div>
                   <h3 className="stamp mt-5 text-[17px] leading-snug">{p.title}</h3>
                   <p className="mt-3 text-[14px] leading-relaxed text-ash">{p.body}</p>
                   <p className="stamp mt-6 border-t-2 border-hairline pt-3 text-[10.5px] text-ash">{p.tag}</p>
@@ -240,12 +258,13 @@ export default function Landing() {
           <p className="stamp text-[18px] sm:text-[22px]">Built for builders who ship fast but harden first.</p>
           <ul className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-[13px]">
             {[
-              ["GitHub repo", REPO],
-              ["Architecture spec", `${REPO}/blob/main/markdown/app_flow.md`],
-              ["PRD", `${REPO}/blob/main/markdown/PRD.md`],
-            ].map(([label, href]) => (
+              ["GitHub repo", REPO, "github"],
+              ["Architecture spec", `${REPO}/blob/main/markdown/app_flow.md`, "coding"],
+              ["PRD", `${REPO}/blob/main/markdown/PRD.md`, "shield"],
+            ].map(([label, href, icon]) => (
               <li key={label}>
-                <a href={href} target="_blank" rel="noopener noreferrer" className="stamp text-ash hover:text-bone">
+                <a href={href} target="_blank" rel="noopener noreferrer" className="stamp flex items-center gap-1.5 text-ash hover:text-bone">
+                  <AppIcon name={icon as AppIconName} size={15} />
                   {label} ↗
                 </a>
               </li>

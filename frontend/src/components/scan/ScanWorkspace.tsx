@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, RotateCw, ShieldCheck } from "lucide-react";
+import { Plus, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
@@ -23,6 +23,7 @@ import { TERMINAL } from "@/lib/types";
 import { useScan } from "@/lib/useScan";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { AppIcon } from "@/components/ui/AppIcon";
 
 export function ScanWorkspace({ scanId }: { scanId: string }) {
   const { scan, findings, error, applyUpdate } = useScan(scanId);
@@ -123,10 +124,13 @@ export function ScanWorkspace({ scanId }: { scanId: string }) {
       <>
         {nav}
         <main className="mx-auto max-w-[720px] px-4 pt-[calc(64px+48px)] sm:px-6">
-          <div className="border-2 border-risk bg-grad-risk p-6">
-            <p className="stamp text-[12px] text-risk">Scan Failed</p>
-            <h1 className="stamp mt-1 text-[24px]">{shortTarget(scan.target)}</h1>
-            <p className="mt-4 text-[15px] text-bone/90">{scan.error_message ?? "Unknown error"}</p>
+          <div className="border-2 border-risk bg-grad-risk p-6 flex items-start gap-4">
+            <AppIcon name="failed" size={44} className="shrink-0 mt-1" alt="Scan failed" />
+            <div>
+              <p className="stamp text-[12px] text-risk">Scan Failed</p>
+              <h1 className="stamp mt-1 text-[24px]">{shortTarget(scan.target)}</h1>
+              <p className="mt-4 text-[15px] text-bone/90">{scan.error_message ?? "Unknown error"}</p>
+            </div>
           </div>
         </main>
       </>
@@ -237,7 +241,7 @@ function AllClear({ score }: { score: number | null }) {
   return (
     <div className="grid h-full place-items-center p-8">
       <div className="border-2 border-secure bg-grad-secure p-8 text-center">
-        <ShieldCheck size={32} className="mx-auto text-secure" aria-hidden />
+        <AppIcon name="success" size={48} className="mx-auto mb-3" alt="No open findings" />
         <p className="stamp mt-4 text-[20px]">No Open Findings</p>
         <p className="mt-2 text-[14px] text-ash">Hardening Index {score ?? 100}/100</p>
       </div>

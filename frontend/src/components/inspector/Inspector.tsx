@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, Copy, ExternalLink, GitPullRequest, KeyRound } from "lucide-react";
+import { Check, Copy, ExternalLink, KeyRound } from "lucide-react";
 import { useState } from "react";
 
 import { DiffView, SnippetView } from "@/components/inspector/DiffView";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { AppIcon } from "@/components/ui/AppIcon";
 import { api } from "@/lib/api";
 import { cn, isSevere, location } from "@/lib/format";
 import type { Finding, FindingUpdateResult, ScanSource } from "@/lib/types";
@@ -99,7 +100,16 @@ export function Inspector(props: {
         )}
 
         <section>
-          <h2 className="stamp mb-3 text-[12px] text-ash">{f.unified_diff ? "Suggested Fix" : "Code"}</h2>
+          <h2 className="stamp mb-3 text-[12px] text-ash flex items-center gap-1.5">
+            {f.unified_diff ? (
+              <>
+                <AppIcon name="fix" size={14} alt="Fix" />
+                <span>Suggested Fix</span>
+              </>
+            ) : (
+              "Code"
+            )}
+          </h2>
           {f.unified_diff ? (
             <DiffView diff={f.unified_diff} path={f.file_path} />
           ) : (
@@ -119,8 +129,8 @@ export function Inspector(props: {
         )}
         <div className="flex flex-wrap items-center gap-3">
           {f.pull_request ? (
-            <a className="btn btn-primary" href={f.pull_request.pr_url} target="_blank" rel="noreferrer">
-              <GitPullRequest size={16} strokeWidth={2.5} aria-hidden />
+            <a className="btn btn-primary flex items-center gap-2" href={f.pull_request.pr_url} target="_blank" rel="noreferrer">
+              <AppIcon name="github" size={16} alt="GitHub" />
               View PR #{f.pull_request.pr_number}
               <ExternalLink size={14} aria-hidden />
             </a>
@@ -128,11 +138,12 @@ export function Inspector(props: {
             <Button
               type="button"
               variant="default"
+              className="flex items-center gap-2"
               disabled={Boolean(prBlocker) || busy !== null}
               title={prBlocker ?? undefined}
               onClick={() => run("pr", () => api.openPullRequest(f.id))}
             >
-              {busy === "pr" ? <Spinner className="size-4" /> : <GitPullRequest size={16} strokeWidth={2.5} aria-hidden />}
+              {busy === "pr" ? <Spinner className="size-4" /> : <AppIcon name="fix" size={16} alt="Fix" />}
               {busy === "pr" ? "Opening PR" : "Apply Fix (PR)"}
             </Button>
           )}

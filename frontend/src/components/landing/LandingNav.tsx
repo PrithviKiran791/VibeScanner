@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppIcon } from "@/components/ui/AppIcon";
 
 const LINKS = [
   { href: "#how", label: "How it works" },
@@ -13,9 +14,9 @@ export function LandingNav() {
       <Link
         href="/"
         aria-label="VibeGuard home"
-        className="flex items-center gap-2 border-r-2 border-hairline px-4 font-heading text-[17px] font-extrabold uppercase tracking-[0.08em] sm:px-6"
+        className="flex items-center gap-2.5 border-r-2 border-hairline px-4 font-heading text-[17px] font-extrabold uppercase tracking-[0.08em] sm:px-6"
       >
-        <span aria-hidden className="block h-3 w-3 bg-secure" />
+        <AppIcon name="shield" size={18} alt="VibeGuard" />
         VibeGuard
       </Link>
 

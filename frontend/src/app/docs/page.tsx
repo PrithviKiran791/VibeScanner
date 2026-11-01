@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { C, CodeBlock, OnThisPage, Page, PageHeader, Panel, Section } from "@/components/page/Page";
+import { AppIcon, type IconName } from "@/components/ui/AppIcon";
 import { cn } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Docs · VibeGuard" };
@@ -22,29 +23,34 @@ const TOC = [
   { id: "demo-app", label: "Demo app" },
 ];
 
-const PIPELINE = [
+const PIPELINE: { step: string; detail: string; icon: IconName }[] = [
   {
     step: "Ingest",
+    icon: "clone",
     detail:
       "Shallow clone (depth 1, no submodules, no symlinks) into a throwaway directory, with a 30s timeout and a 200MB cap. node_modules, build output, lockfiles and binaries are skipped, and the remaining source must fit in 50MB.",
   },
   {
     step: "Static pass",
+    icon: "staticPass",
     detail:
       "Secret rules, npm/PyPI existence checks, and Tree-sitter sink detection over JS/TS. Costs no LLM tokens.",
   },
   {
     step: "Pruning",
+    icon: "coding",
     detail:
       "Tree-sitter extracts route handlers, server actions, Express routes and middleware, then ranks them by risk signals so the riskiest code is reviewed first.",
   },
   {
     step: "Semantic pass",
+    icon: "semanticPass",
     detail:
       "The ranked units go to the LLM in chunks, within the scan's deadline. Every finding is checked against the real file before it's accepted.",
   },
   {
     step: "Merge & score",
+    icon: "shield",
     detail:
       "Overlapping static and LLM findings are merged, duplicates collapsed, and the Hardening Index computed. The clone is deleted however the scan ends.",
   },
@@ -145,12 +151,15 @@ export default function DocsPage() {
         <ol className="grid gap-3">
           {PIPELINE.map((p, i) => (
             <li key={p.step}>
-              <Panel className="flex gap-4 p-4">
-                <span className="grid h-8 w-8 shrink-0 place-items-center border-2 border-bone font-heading text-[13px] font-extrabold">
-                  {i + 1}
+              <Panel className="flex items-start gap-4 p-4">
+                <span className="grid h-10 w-10 shrink-0 place-items-center border-2 border-hairline bg-graphite">
+                  <AppIcon name={p.icon} size={22} alt={p.step} />
                 </span>
-                <span>
-                  <span className="stamp block text-[14px]">{p.step}</span>
+                <span className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="stamp block text-[14px]">{p.step}</span>
+                    <span className="code text-[11px] text-ash">Step {i + 1}</span>
+                  </div>
                   <span className="mt-1 block text-[14px] leading-relaxed text-ash">{p.detail}</span>
                 </span>
               </Panel>

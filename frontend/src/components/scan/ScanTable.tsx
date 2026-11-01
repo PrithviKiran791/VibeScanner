@@ -7,6 +7,7 @@ import type { Scan } from "@/lib/types";
 import { TERMINAL } from "@/lib/types";
 import { useScanList } from "@/lib/useScanList";
 import { Spinner } from "@/components/ui/spinner";
+import { AppIcon } from "@/components/ui/AppIcon";
 
 const SCORE_TEXT = { secure: "text-secure", neutral: "text-bone", risk: "text-risk" } as const;
 
@@ -44,8 +45,9 @@ export function ScanTable({ limit, title }: { limit: number; title: string }) {
                   className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-graphite sm:grid-cols-[1fr_140px_80px] sm:px-6"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-[14px] font-semibold">
-                      {shortTarget(s.target)}
+                    <span className="flex items-center gap-1.5 truncate text-[14px] font-semibold">
+                      {s.source_type === "GITHUB" && <AppIcon name="github" size={14} alt="GitHub" />}
+                      <span className="truncate">{shortTarget(s.target)}</span>
                     </span>
                     <span className="block text-[12px] text-ash">
                       {s.source_type} · {relativeTime(s.created_at)}
@@ -53,12 +55,15 @@ export function ScanTable({ limit, title }: { limit: number; title: string }) {
                   </span>
                   <span
                     className={cn(
-                      "stamp hidden text-[11px] sm:block",
+                      "stamp hidden text-[11px] sm:flex sm:items-center sm:gap-1.5",
                       s.status === "FAILED" ? "text-risk" : TERMINAL.has(s.status) ? "text-ash" : "text-bone",
                     )}
                   >
-                    {STATUS_LABEL[s.status]}
-                    {!TERMINAL.has(s.status) && s.progress && ` ${s.progress.percentage}%`}
+                    {s.status === "COMPLETED" && <AppIcon name="success" size={14} alt="Completed" />}
+                    {s.status === "FAILED" && <AppIcon name="failed" size={14} alt="Failed" />}
+                    {!TERMINAL.has(s.status) && <Spinner className="size-3 text-secure" />}
+                    <span>{STATUS_LABEL[s.status]}</span>
+                    {!TERMINAL.has(s.status) && s.progress && <span>{s.progress.percentage}%</span>}
                   </span>
                   <span
                     className={cn(

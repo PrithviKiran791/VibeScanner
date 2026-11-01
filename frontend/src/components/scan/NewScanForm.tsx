@@ -11,6 +11,7 @@ import { normalizeTarget } from "@/lib/target";
 import type { ScanOptions } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { AppIcon } from "@/components/ui/AppIcon";
 
 export function NewScanForm() {
   const router = useRouter();
@@ -63,13 +64,15 @@ export function NewScanForm() {
 
   return (
     <form onSubmit={submit} className="border-2 border-hairline bg-carbon" noValidate>
-      <div className="border-b-2 border-hairline px-5 py-4 sm:px-6">
+      <div className="border-b-2 border-hairline px-5 py-4 sm:px-6 flex items-center gap-2.5">
+        <AppIcon name="scanner" size={20} alt="Scan" />
         <h2 className="stamp text-[18px]">New Scan</h2>
       </div>
       <div className="space-y-5 p-5 sm:p-6">
         <div>
-          <label htmlFor="target" className="stamp mb-2 block text-[12px] text-ash">
-            GitHub Repository
+          <label htmlFor="target" className="stamp mb-2 flex items-center gap-1.5 text-[12px] text-ash">
+            <AppIcon name="github" size={14} alt="GitHub" />
+            <span>GitHub Repository</span>
           </label>
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
@@ -83,7 +86,7 @@ export function NewScanForm() {
               aria-invalid={Boolean(error)}
               aria-describedby={error ? "target-error" : undefined}
             />
-            <Button type="submit" variant="default" size="lg" className="h-12 shrink-0 px-6" disabled={busy}>
+            <Button type="submit" variant="default" size="lg" className="h-12 shrink-0 px-6 flex items-center gap-2" disabled={busy}>
               {busy ? (
                 <>
                   <Spinner className="size-4" />
@@ -91,6 +94,7 @@ export function NewScanForm() {
                 </>
               ) : (
                 <>
+                  <AppIcon name="scanner" size={16} alt="Scan" />
                   <span>Scan</span>
                   <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
                 </>

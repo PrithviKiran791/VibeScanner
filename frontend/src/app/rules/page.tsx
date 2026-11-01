@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { C, OnThisPage, Page, PageHeader, Panel, Section } from "@/components/page/Page";
 import { SeverityBadge } from "@/components/ui/SeverityBadge";
+import { AppIcon, type IconName } from "@/components/ui/AppIcon";
 import { PASSES, PENALTIES, RULES, rulesFor, SEMANTIC_CATEGORIES, type Rule } from "@/lib/catalog";
 import { cn } from "@/lib/format";
 
@@ -18,10 +19,10 @@ export default function RulesPage() {
       </PageHeader>
 
       <div className="mb-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat value={RULES.length} label="Static rules" />
-        <Stat value={fixable} label="With auto-fix" tone="secure" />
-        <Stat value={SEMANTIC_CATEGORIES.length} label="LLM categories" />
-        <Stat value={PASSES.length} label="Analysis passes" />
+        <Stat value={RULES.length} label="Static rules" icon="staticPass" />
+        <Stat value={fixable} label="With auto-fix" tone="secure" icon="fix" />
+        <Stat value={SEMANTIC_CATEGORIES.length} label="LLM categories" icon="semanticPass" />
+        <Stat value={PASSES.length} label="Analysis passes" icon="scanner" />
       </div>
 
       <OnThisPage
@@ -129,11 +130,18 @@ function RuleTable({ rules }: { rules: Rule[] }) {
             </span>
             <span
               className={cn(
-                "stamp inline-flex h-[22px] items-center border-2 px-2 text-[11px]",
+                "stamp inline-flex h-[22px] items-center gap-1 border-2 px-2 text-[11px]",
                 r.fix ? "border-secure/60 text-secure" : "border-hairline text-ash",
               )}
             >
-              {r.fix ? "Auto-fix" : "Manual fix"}
+              {r.fix ? (
+                <>
+                  <AppIcon name="fix" size={12} />
+                  Auto-fix
+                </>
+              ) : (
+                "Manual fix"
+              )}
             </span>
           </div>
           <h3 className="stamp mt-3 text-[15px]">{r.title}</h3>
@@ -151,17 +159,30 @@ function RuleTable({ rules }: { rules: Rule[] }) {
   );
 }
 
-function Stat({ value, label, tone }: { value: number; label: string; tone?: "secure" }) {
+function Stat({
+  value,
+  label,
+  tone,
+  icon,
+}: {
+  value: number;
+  label: string;
+  tone?: "secure";
+  icon?: IconName;
+}) {
   return (
     <Panel className={cn("p-4", tone === "secure" && "border-secure/60 bg-grad-secure")}>
-      <p
-        className={cn(
-          "font-heading text-[32px] font-extrabold leading-none tabular-nums",
-          tone === "secure" && "text-secure",
-        )}
-      >
-        {value}
-      </p>
+      <div className="flex items-center justify-between">
+        <p
+          className={cn(
+            "font-heading text-[32px] font-extrabold leading-none tabular-nums",
+            tone === "secure" && "text-secure",
+          )}
+        >
+          {value}
+        </p>
+        {icon && <AppIcon name={icon} size={26} className="shrink-0" />}
+      </div>
       <p className="stamp mt-2 text-[11px] text-ash">{label}</p>
     </Panel>
   );

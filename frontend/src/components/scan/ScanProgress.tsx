@@ -1,15 +1,16 @@
 import { Check } from "lucide-react";
 
+import { AppIcon, type AppIconName } from "@/components/ui/AppIcon";
 import { Spinner } from "@/components/ui/spinner";
 import { Progress } from "@/components/ui/progress";
 import { cn, shortTarget } from "@/lib/format";
 import type { Scan, ScanStatus } from "@/lib/types";
 
-const STAGES: { status: ScanStatus; label: string; detail: string }[] = [
-  { status: "QUEUED", label: "Queued", detail: "Waiting for a worker" },
-  { status: "CLONING", label: "Clone", detail: "Shallow clone into an ephemeral sandbox" },
-  { status: "ANALYZING_STATIC", label: "Static Pass", detail: "Secrets, packages, injection sinks" },
-  { status: "ANALYZING_LLM", label: "Semantic Pass", detail: "Auth and logic review of extracted routes" },
+const STAGES: { status: ScanStatus; label: string; detail: string; icon: AppIconName }[] = [
+  { status: "QUEUED", label: "Queued", detail: "Waiting for a worker", icon: "scanner" },
+  { status: "CLONING", label: "Clone", detail: "Shallow clone into an ephemeral sandbox", icon: "clone" },
+  { status: "ANALYZING_STATIC", label: "Static Pass", detail: "Secrets, packages, injection sinks", icon: "staticPass" },
+  { status: "ANALYZING_LLM", label: "Semantic Pass", detail: "Auth and logic review of extracted routes", icon: "semanticPass" },
 ];
 
 export function ScanProgress({ scan }: { scan: Scan }) {
@@ -20,9 +21,12 @@ export function ScanProgress({ scan }: { scan: Scan }) {
   return (
     <div className="mx-auto max-w-[720px] px-4 py-12 sm:px-6">
       <div className="border-2 border-hairline bg-carbon">
-        <div className="border-b-2 border-hairline px-5 py-5 sm:px-6">
-          <p className="stamp text-[12px] text-ash">Scanning</p>
-          <h1 className="stamp mt-1 truncate text-[24px]">{shortTarget(scan.target)}</h1>
+        <div className="flex items-center justify-between border-b-2 border-hairline px-5 py-5 sm:px-6">
+          <div>
+            <p className="stamp text-[12px] text-ash">Scanning</p>
+            <h1 className="stamp mt-1 truncate text-[24px]">{shortTarget(scan.target)}</h1>
+          </div>
+          <AppIcon name="scanner" size={32} alt="Scanner" />
         </div>
 
         <div className="px-5 py-6 sm:px-6">
@@ -47,16 +51,20 @@ export function ScanProgress({ scan }: { scan: Scan }) {
                 >
                   <span
                     className={cn(
-                      "grid h-7 w-7 shrink-0 place-items-center border-2 font-heading text-[12px] font-extrabold",
-                      done ? "border-secure bg-secure text-obsidian" : active ? "border-bone" : "border-hairline",
+                      "grid h-8 w-8 shrink-0 place-items-center border-2 font-heading text-[12px] font-extrabold",
+                      done ? "border-secure bg-secure text-obsidian" : active ? "border-bone bg-carbon" : "border-hairline",
                     )}
                   >
-                    {done ? <Check size={14} strokeWidth={3} aria-hidden /> : i + 1}
+                    {done ? (
+                      <AppIcon name="success" size={16} alt="Completed" />
+                    ) : (
+                      <AppIcon name={stage.icon} size={16} alt={stage.label} />
+                    )}
                   </span>
-                  <span>
+                  <div className="flex-1 min-w-0">
                     <span className="stamp block text-[13px]">{stage.label}</span>
-                    <span className="block text-[13px] text-ash">{stage.detail}</span>
-                  </span>
+                    <span className="block truncate text-[13px] text-ash">{stage.detail}</span>
+                  </div>
                   {active && <Spinner className="ml-auto size-4 text-secure" />}
                 </li>
               );

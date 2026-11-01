@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { AppIcon } from "@/components/ui/AppIcon";
 import { cn } from "@/lib/format";
 import { savePendingScan, takePendingScan } from "@/lib/pendingScan";
 import { normalizeTarget } from "@/lib/target";
@@ -55,6 +56,9 @@ export function HeroScan() {
           error ? "border-risk" : "border-hairline",
         )}
       >
+        <div className="hidden sm:flex items-center pl-4 text-ash">
+          <AppIcon name="github" size={20} alt="GitHub repository" />
+        </div>
         <input
           id="repo"
           value={value}
@@ -71,9 +75,11 @@ export function HeroScan() {
         />
         <button
           type="submit"
-          className="btn btn-primary h-14 shrink-0 !rounded-none border-0 border-t-2 border-t-hairline px-6 text-[14px] sm:h-auto sm:border-l-2 sm:border-t-0 sm:border-l-hairline"
+          className="btn btn-primary h-14 shrink-0 !rounded-none border-0 border-t-2 border-t-hairline px-6 text-[14px] sm:h-auto sm:border-l-2 sm:border-t-0 sm:border-l-hairline flex items-center justify-center gap-2"
         >
-          Scan repository <span aria-hidden>→</span>
+          <AppIcon name="scanner" size={18} />
+          <span>Scan repository</span>
+          <span aria-hidden>→</span>
         </button>
       </div>
       {error ? (

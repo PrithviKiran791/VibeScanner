@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { authErrorMessage, useAuth } from "@/components/auth/AuthProvider";
-import { GitHubMark } from "@/components/auth/GitHubMark";
 import { Spinner } from "@/components/ui/spinner";
+import { AppIcon } from "@/components/ui/AppIcon";
 
 /**
  * Shown when a signed-out visitor tries to start a scan. The repo they entered is already
@@ -69,8 +69,8 @@ export function AuthModal(props: {
           <X size={18} />
         </button>
 
-        <div className="flex items-center gap-2">
-          <span aria-hidden className="h-2.5 w-2.5 bg-risk" />
+        <div className="flex items-center gap-2.5">
+          <AppIcon name="shield" size={22} alt="Security shield" />
           <h2 id="auth-title" className="stamp text-[20px] font-extrabold">
             Authentication required
           </h2>
@@ -96,9 +96,9 @@ export function AuthModal(props: {
           type="button"
           onClick={github}
           disabled={busy}
-          className="btn mt-6 h-12 w-full border-2 border-secure bg-obsidian text-[14px] text-bone shadow-hard-secure hover:bg-carbon"
+          className="btn mt-6 h-12 w-full border-2 border-secure bg-obsidian text-[14px] text-bone shadow-hard-secure hover:bg-carbon flex items-center justify-center gap-2"
         >
-          {busy ? <Spinner className="size-4 text-secure" /> : <GitHubMark className="size-4" />}
+          {busy ? <Spinner className="size-4 text-secure" /> : <AppIcon name="github" size={18} alt="GitHub" />}
           Continue with GitHub
         </button>
 

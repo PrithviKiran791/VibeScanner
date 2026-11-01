@@ -20,6 +20,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { AppIcon } from "@/components/ui/AppIcon";
 import { AccountControl } from "@/components/nav/AccountControl";
 import { FeatureItem, Menu, MenuItem, MenuLink } from "@/components/ui/navbar-menu";
 import { RULES, rulesFor } from "@/lib/catalog";
@@ -48,9 +49,9 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
       <Link
         href="/"
         aria-label="VibeGuard home"
-        className="flex items-center gap-2 border-r-2 border-hairline px-4 font-heading text-[17px] font-extrabold uppercase tracking-[0.08em] sm:px-6"
+        className="flex items-center gap-2.5 border-r-2 border-hairline px-4 font-heading text-[17px] font-extrabold uppercase tracking-[0.08em] sm:px-6"
       >
-        <span aria-hidden className="block h-3 w-3 bg-secure" />
+        <AppIcon name="shield" size={18} alt="VibeGuard" />
         <span className="hidden min-[420px]:inline">VibeGuard</span>
       </Link>
 
@@ -67,7 +68,7 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
           <MenuItem
             item="audit"
             label="Audit"
-            icon={<Code2 className="size-3.5 text-secure" aria-hidden />}
+            icon={<AppIcon name="coding" size={15} aria-hidden />}
             current={section === "audit"}
             active={active}
             setActive={setActive}
@@ -84,7 +85,7 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
                 href="/scan"
                 title="New Code Scan"
                 description="Scan a GitHub repo for secrets, injection and missing auth."
-                icon={<ScanSearch className={ICON} />}
+                icon={<AppIcon name="scanner" size={18} className={ICON} />}
               />
               <FeatureItem
                 href="/history"
@@ -104,7 +105,7 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
           <MenuItem
             item="rules"
             label="Rules"
-            icon={<ShieldAlert className="size-3.5 text-risk" aria-hidden />}
+            icon={<AppIcon name="security" size={15} aria-hidden />}
             current={section === "rules"}
             active={active}
             setActive={setActive}
@@ -166,7 +167,7 @@ export function TopNav({ repo, right }: { repo?: string; right?: React.ReactNode
                 href="/docs#pull-requests"
                 title="Fix Pull Requests"
                 description="How Apply Fix rebuilds a patch on your live branch."
-                icon={<GitPullRequest className={ICON} />}
+                icon={<AppIcon name="fix" size={18} className={ICON} />}
               />
               <FeatureItem
                 href="/docs#hardening-index"
