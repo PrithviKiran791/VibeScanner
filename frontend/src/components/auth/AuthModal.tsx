@@ -20,9 +20,9 @@ export function AuthModal(props: {
   onSignedIn: () => void;
 }) {
   const { open, repo, onClose, onSignedIn } = props;
-  const { signInWithGitHub } = useAuth();
+  const { signInWithGitHub, signInWithGoogle } = useAuth();
   const ref = useRef<HTMLDialogElement>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"github" | "google" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Native <dialog>: focus trap, Esc to close and inert background for free
@@ -34,7 +34,7 @@ export function AuthModal(props: {
   }, [open]);
 
   async function github() {
-    setBusy(true);
+    setBusy("github");
     setError(null);
     try {
       await signInWithGitHub();
@@ -42,7 +42,20 @@ export function AuthModal(props: {
     } catch (err) {
       setError(authErrorMessage(err));
     } finally {
-      setBusy(false);
+      setBusy(null);
+    }
+  }
+
+  async function google() {
+    setBusy("google");
+    setError(null);
+    try {
+      await signInWithGoogle();
+      onSignedIn();
+    } catch (err) {
+      setError(authErrorMessage(err));
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -76,7 +89,7 @@ export function AuthModal(props: {
           </h2>
         </div>
         <p id="auth-desc" className="mt-3 text-[14px] leading-relaxed text-ash">
-          Sign in with GitHub to scan repositories, track audit history, and dispatch PR fixes.
+          Sign in with GitHub or Google to scan repositories, track audit history, and dispatch PR fixes.
         </p>
 
         {repo && (
@@ -95,15 +108,25 @@ export function AuthModal(props: {
         <button
           type="button"
           onClick={github}
-          disabled={busy}
+          disabled={busy !== null}
           className="btn mt-6 h-12 w-full border-2 border-secure bg-obsidian text-[14px] text-bone shadow-hard-secure hover:bg-carbon flex items-center justify-center gap-2"
         >
-          {busy ? <Spinner className="size-4 text-secure" /> : <AppIcon name="github" size={18} alt="GitHub" />}
+          {busy === "github" ? <Spinner className="size-4 text-secure" /> : <AppIcon name="github" size={18} alt="GitHub" />}
           Continue with GitHub
         </button>
 
+        <button
+          type="button"
+          onClick={google}
+          disabled={busy !== null}
+          className="btn mt-3 h-12 w-full border-2 border-hairline bg-carbon text-[14px] text-bone shadow-hard hover:bg-graphite flex items-center justify-center gap-2"
+        >
+          {busy === "google" ? <Spinner className="size-4" /> : <AppIcon name="google" size={18} alt="Google" />}
+          Continue with Google
+        </button>
+
         <p className="mt-5 text-center text-[12px] text-ash">
-          Prefer Google or email?{" "}
+          Prefer email or password?{" "}
           <Link href="/login?next=/scan" className="font-semibold text-bone underline-offset-4 hover:underline">
             Other sign-in options
           </Link>

@@ -16,6 +16,7 @@ export const APP_ICONS = {
   success: "/icons/success.png",
   failed: "/icons/failed.png",
   social: "/icons/social.png",
+  google: "/icons/google.png",
 } as const;
 
 export type AppIconName = keyof typeof APP_ICONS;
@@ -43,10 +44,11 @@ export function AppIcon({
   size = "md",
   className,
   alt = "",
-  white = true,
+  white,
   style,
   ...props
 }: AppIconProps) {
+  const isWhite = white ?? (name !== "google");
   const pixelSize: number = typeof size === "number" ? size : (SIZES[size] ?? 24);
   const src = APP_ICONS[name];
 
@@ -58,11 +60,11 @@ export function AppIcon({
       height={pixelSize}
       className={cn(
         "inline-block shrink-0 object-contain align-middle",
-        white && "brightness-0 invert",
+        isWhite && "brightness-0 invert",
         className,
       )}
       style={{
-        filter: white ? "brightness(0) invert(1)" : undefined,
+        filter: isWhite ? "brightness(0) invert(1)" : undefined,
         ...style,
       }}
       unoptimized

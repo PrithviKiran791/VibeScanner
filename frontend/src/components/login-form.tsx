@@ -200,7 +200,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               onClick={() => run("github", signInWithGitHub)}
             >
               {busy === "github" ? <Spinner className="size-4 text-secure" /> : <AppIcon name="github" size={18} alt="GitHub" />}
-              Login with GitHub
+              {mode === "signup" ? "Sign up with GitHub" : "Login with GitHub"}
             </button>
           )}
 
@@ -215,9 +215,9 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               {busy === "google" ? (
                 <Spinner className="size-4" />
               ) : (
-                <AppIcon name="social" size={18} alt="Google" />
+                <AppIcon name="google" size={18} alt="Google" />
               )}
-              Login with Google
+              {mode === "signup" ? "Sign up with Google" : "Login with Google"}
             </Button>
           )}
 
